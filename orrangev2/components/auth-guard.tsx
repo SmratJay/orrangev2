@@ -7,18 +7,21 @@ import { useEffect } from "react"
 
 export function AuthGuard({
   children,
-  requiredRole,
-}: { children: React.ReactNode; requiredRole?: "user" | "merchant" | "admin" }) {
-  const { authenticated, user, isLoading } = usePrivy()
+}: {
+  children: React.ReactNode
+}) {
+  const { ready, authenticated } = usePrivy()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !authenticated) {
+    // Wait until Privy is ready before making decisions
+    if (ready && !authenticated) {
       router.push("/auth/login")
     }
-  }, [authenticated, isLoading, router])
+  }, [ready, authenticated, router])
 
-  if (isLoading) {
+  // Privy not initialized yet → show loader
+  if (!ready) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -29,6 +32,7 @@ export function AuthGuard({
     )
   }
 
+  // Ready but unauthenticated → redirect in effect
   if (!authenticated) {
     return null
   }

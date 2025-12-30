@@ -1,45 +1,47 @@
 import { createClient } from "@/lib/server"
 import { NextResponse } from "next/server"
+import { requirePrivyUser } from "@/lib/requirePrivyUser"
+import { PrivyClient } from "@privy-io/server-auth"
+
+export const runtime = "nodejs"
+
+const privy = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
+  process.env.PRIVY_APP_SECRET!
+)
 
 export async function POST(request: Request) {
   try {
-    const { privy_id, email, user_type, full_name } = await request.json()
+    // 1️⃣ Identity (always required)
+    const { privyId } = await requirePrivyUser(request)
+
+    // 2️⃣ Fetch full Privy user ONLY if needed
+    const privyUser = await privy.getUser(privyId)
+    const email = privyUser.email?.address ?? null
+
+    // 3️⃣ Supabase = data authority
     const supabase = await createClient()
 
-    // Get the authenticated user from Supabase session
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data, error } = await supabase
+      .from("users")
+      .upsert(
+        {
+          privy_user_id: privyId,
+          email,
+        },
+        { onConflict: "privy_user_id" }
+      )
+      .select("id")
+      .single()
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (error) {
+      console.error("[setup] Supabase error:", error)
+      return NextResponse.json({ error: "Database error" }, { status: 500 })
     }
 
-    // Create user record
-    const { error: userError } = await supabase.from("users").insert({
-      id: user.id,
-      email: email || user.email,
-      user_type,
-      full_name,
-    })
-
-    if (userError && userError.code !== "23505") {
-      // 23505 is duplicate key error, user might already exist
-      throw userError
-    }
-
-    // Create user profile
-    const { error: profileError } = await supabase.from("user_profiles").insert({
-      user_id: user.id,
-    })
-
-    if (profileError && profileError.code !== "23505") {
-      throw profileError
-    }
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, userId: data.id })
   } catch (error) {
-    console.error("[v0] Setup error:", error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Setup failed" }, { status: 500 })
+    console.error("[setup] Fatal error:", error)
+    return NextResponse.json({ error: "Setup failed" }, { status: 500 })
   }
 }
