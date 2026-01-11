@@ -34,6 +34,9 @@ export async function GET(request: Request) {
         .eq('user_id', user.id)
         .single();
 
+      // Fetch TWO sets of orders:
+      // 1. New orders (pending with no merchant) - for "Orders to Fulfill"
+      // 2. Orders assigned to this merchant - for "Pending Orders" and "Ready to Send"
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -45,8 +48,7 @@ export async function GET(request: Request) {
             embedded_wallet_address
           )
         `)
-        .eq('merchant_id', merchant?.id)
-        .in('status', ['pending', 'payment_received'])
+        .or(`and(status.eq.pending,merchant_id.is.null),merchant_id.eq.${merchant?.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
