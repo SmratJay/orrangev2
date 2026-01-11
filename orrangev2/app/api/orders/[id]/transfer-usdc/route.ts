@@ -118,10 +118,11 @@ export async function POST(
 
     // Revert status on error
     try {
+      const { id: orderId } = await params;
       await (await createClient())
         .from('orders')
         .update({ status: 'payment_confirmed' })
-        .eq('id', params.id);
+        .eq('id', orderId);
     } catch (revertError) {
       console.error('[orders/transfer-usdc] Failed to revert status:', revertError);
     }
