@@ -28,16 +28,24 @@ export async function GET(request: Request) {
 
     if (user.user_type === 'merchant') {
       // Get merchant's assigned orders
-      const { data: merchant } = await supabase
+      const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
         .select('id')
         .eq('user_id', user.id)
         .single();
 
+      if (merchantError) {
+        console.error('[orders/pending] Merchant fetch error:', merchantError);
+      }
+
+      console.log('[orders/pending] Merchant ID:', merchant?.id);
+
       // Fetch TWO sets of orders:
       // 1. New orders (pending with no merchant) - for "Orders to Fulfill"
       // 2. Orders assigned to this merchant - for "Pending Orders" and "Ready to Send"
-      const { data, error } = await supabase
+      
+      // Build query conditions
+      let query = supabase
         .from('orders')
         .select(`
           *,
@@ -47,11 +55,24 @@ export async function GET(request: Request) {
             smart_wallet_address,
             embedded_wallet_address
           )
-        `)
-        .or(`and(status.eq.pending,merchant_id.is.null),merchant_id.eq.${merchant?.id}`)
-        .order('created_at', { ascending: false });
+        `);
 
-      if (error) throw error;
+      // Add condition: pending with no merchant OR assigned to this merchant
+      if (merchant?.id) {
+        query = query.or(`and(status.eq.pending,merchant_id.is.null),merchant_id.eq.${merchant.id}`);
+      } else {
+        // If no merchant record, just show unassigned pending orders
+        query = query.eq('status', 'pending').is('merchant_id', null);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[orders/pending] Query error:', error);
+        throw error;
+      }
+      
+      console.log('[orders/pending] Found orders:', data?.length);
       orders = data;
     } else {
       // Get user's own orders
