@@ -12,10 +12,55 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (authenticated) {
-      router.push("/dashboard")
+    const checkUserTypeAndRedirect = async () => {
+      if (authenticated && user) {
+        try {
+          // First check Privy custom metadata (fastest)
+          const userTypeFromMetadata = (user as any).customMetadata?.user_type;
+          console.log('[Login] User type from Privy metadata:', userTypeFromMetadata);
+          
+          if (userTypeFromMetadata === 'merchant') {
+            console.log('[Login] Redirecting to /merchant (from metadata)');
+            router.push('/merchant');
+            return;
+          }
+          
+          if (userTypeFromMetadata === 'admin') {
+            console.log('[Login] Redirecting to /admin (from metadata)');
+            router.push('/admin');
+            return;
+          }
+          
+          // Fallback: Check database if no metadata
+          if (!userTypeFromMetadata) {
+            console.log('[Login] No metadata, checking database...');
+            const userResponse = await fetch(`/api/users/me`);
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              console.log('[Login] User data from DB:', userData);
+              
+              if (userData.user_type === 'merchant') {
+                router.push('/merchant');
+                return;
+              } else if (userData.user_type === 'admin') {
+                router.push('/admin');
+                return;
+              }
+            }
+          }
+          
+          // Default to dashboard
+          console.log('[Login] Redirecting to /dashboard');
+          router.push('/dashboard');
+        } catch (error) {
+          console.error('Error checking user type:', error);
+          router.push('/dashboard');
+        }
+      }
     }
-  }, [authenticated, router])
+    
+    checkUserTypeAndRedirect();
+  }, [authenticated, user, router])
 
   const handleLogin = async () => {
     setIsLoading(true)

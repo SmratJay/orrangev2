@@ -1,18 +1,115 @@
 "use client"
 
-import { useState } from "react" // Added this
-import { usePrivy } from "@privy-io/react-auth"
+import { useState, useEffect } from "react"
+import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDownUp, Plus, History, LogOut, ArrowLeft } from "lucide-react" // Added ArrowLeft
+import { ArrowDownUp, Plus, History, LogOut, ArrowLeft, Copy, Wallet as WalletIcon, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
-import { BuyForm } from "@/components/buy-form" // Import your new form
+import { BuyForm } from "@/components/buy-form"
+import { WalletBalance } from "@/components/wallet-balance"
 
 function DashboardContent() {
-  const { user, logout } = usePrivy()
-  // view can be 'overview' or 'buy'
+  const { user, logout, ready: privyReady } = usePrivy()
+  const { wallets, ready: walletsReady } = useWallets()
+  const { createWallet } = useCreateWallet()
+  const router = useRouter()
   const [view, setView] = useState<'overview' | 'buy'>('overview')
+  const [isCheckingUserType, setIsCheckingUserType] = useState(true)
+  const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null)
+  const [copiedAddress, setCopiedAddress] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // Get embedded wallet address - recheck when wallets change
+  useEffect(() => {
+    console.log('[Dashboard] Wallets state:', { 
+      walletsReady, 
+      walletsCount: wallets?.length,
+      wallets: wallets?.map(w => ({ type: w.walletClientType, address: w.address }))
+    })
+    
+    if (walletsReady && wallets && wallets.length > 0) {
+      const embedded = wallets.find((w) => w.walletClientType === 'privy')
+      if (embedded) {
+        console.log('[Dashboard] Found embedded wallet:', embedded.address)
+        setEmbeddedWalletAddress(embedded.address)
+      }
+    }
+  }, [wallets, walletsReady])
+
+  // Handle wallet creation
+  const handleCreateWallet = async () => {
+    try {
+      console.log('[Dashboard] Creating wallet...')
+      await createWallet()
+      console.log('[Dashboard] Wallet created successfully')
+    } catch (error) {
+      console.error('[Dashboard] Error creating wallet:', error)
+    }
+  }
+
+  // Copy address to clipboard
+  const copyAddress = () => {
+    if (embeddedWalletAddress) {
+      navigator.clipboard.writeText(embeddedWalletAddress)
+      setCopiedAddress(true)
+      setTimeout(() => setCopiedAddress(false), 2000)
+    }
+  }
+
+  useEffect(() => {
+    const checkUserType = async () => {
+      try {
+        const response = await fetch('/api/users/me')
+        console.log('[Dashboard] /api/users/me response:', response.status)
+        
+        if (response.ok) {
+          const userData = await response.json()
+          console.log('[Dashboard] User data:', userData)
+          console.log('[Dashboard] User type:', userData.user_type)
+          
+          // Redirect merchants to merchant dashboard
+          if (userData.user_type === 'merchant') {
+            console.log('[Dashboard] Redirecting to /merchant')
+            router.push('/merchant')
+            return
+          }
+          
+          // Redirect admins to admin dashboard
+          if (userData.user_type === 'admin') {
+            console.log('[Dashboard] Redirecting to /admin')
+            router.push('/admin')
+            return
+          }
+          
+          console.log('[Dashboard] User is regular user, staying on dashboard')
+        } else {
+          console.error('[Dashboard] Failed to fetch user data:', response.status)
+        }
+      } catch (error) {
+        console.error('Error checking user type:', error)
+      } finally {
+        setIsCheckingUserType(false)
+      }
+    }
+    
+    if (user) {
+      checkUserType()
+    }
+  }, [user, router])
+
+  if (isCheckingUserType) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,7 +133,7 @@ function DashboardContent() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Back Button (only shows when in 'buy' view) */}
+        {/* Back Button */}
         {view === 'buy' && (
           <Button 
             variant="ghost" 
@@ -48,7 +145,7 @@ function DashboardContent() {
           </Button>
         )}
 
-        {/* Conditional Rendering based on view */}
+        {/* Conditional Rendering */}
         {view === 'buy' ? (
           <div className="flex justify-center">
             <BuyForm />
@@ -56,17 +153,106 @@ function DashboardContent() {
         ) : (
           <>
             {/* Welcome Section */}
-            <div className="mb-12">
+            <div className="mb-8">
               <h2 className="text-3xl font-bold mb-2">Welcome back</h2>
               <p className="text-muted-foreground">Manage your crypto conversions and transactions</p>
             </div>
 
-            {/* Quick Actions */}
+            {/* Wallet Address Display */}
+            {embeddedWalletAddress ? (
+              <Card className="mb-8 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <WalletIcon className="w-5 h-5" />
+                    Your Embedded Wallet
+                  </CardTitle>
+                  <CardDescription>
+                    This is your Privy-managed smart wallet on Sepolia testnet
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
+                    <code className="flex-1 text-sm font-mono">
+                      {embeddedWalletAddress}
+                    </code>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={copyAddress}
+                      className="shrink-0"
+                    >
+                      {copiedAddress ? '✓ Copied' : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => window.open(`https://sepolia.etherscan.io/address/${embeddedWalletAddress}`, '_blank')}
+                    >
+                      View on Explorer
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => window.open('https://sepoliafaucet.com/', '_blank')}
+                    >
+                      Get Testnet ETH
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="mb-8 border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-yellow-500/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <WalletIcon className="w-5 h-5" />
+                    No Wallet Found
+                  </CardTitle>
+                  <CardDescription>
+                    {!walletsReady ? 'Loading wallet...' : 'Create an embedded wallet to start using BlockRamp'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!walletsReady ? (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Checking for wallet...</span>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={handleCreateWallet}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Creating Wallet...
+                        </>
+                      ) : (
+                        <>
+                          <WalletIcon className="w-4 h-4 mr-2" />
+                          Create Embedded Wallet
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 2. PLACED HERE: Your Wallet Balance is the first thing users see */}
+            <div className="mb-8">
+              <WalletBalance />
+            </div>
+
+            {/* Quick Actions Grid */}
             <div className="grid md:grid-cols-3 gap-6 mb-12">
               {/* ON RAMP CARD */}
               <Card 
                 className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30 hover:border-primary/50 transition cursor-pointer"
-                onClick={() => setView('buy')} // Set view to buy
+                onClick={() => setView('buy')}
               >
                 <CardHeader>
                   <Plus className="w-8 h-8 text-primary mb-2" />

@@ -1,13 +1,113 @@
 "use client"
 
 import { usePrivy } from "@privy-io/react-auth"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, LogOut } from "lucide-react"
+import { LogOut, CheckCircle, Clock, Send } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
+import { useState, useEffect } from "react"
+import { SendUSDC } from "@/components/send-usdc"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+interface Order {
+  id: string
+  user_id: string
+  type: string
+  status: string
+  fiat_amount: number
+  usdc_amount: number
+  created_at: string
+  payment_reference?: string
+  user_wallet_address?: string
+  users?: {
+    email: string
+    smart_wallet_address?: string
+    embedded_wallet_address?: string
+  }
+}
 
 function MerchantContent() {
   const { user, logout } = usePrivy()
+  const router = useRouter()
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [paymentRef, setPaymentRef] = useState('')
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true)
+
+  // Check if user is actually a merchant
+  useEffect(() => {
+    const checkMerchantAccess = async () => {
+      try {
+        const response = await fetch('/api/users/me')
+        if (response.ok) {
+          const userData = await response.json()
+          
+          // Redirect non-merchants to dashboard
+          if (userData.user_type !== 'merchant') {
+            router.push('/dashboard')
+            return
+          }
+        }
+      } catch (error) {
+        console.error('Error checking merchant access:', error)
+        router.push('/dashboard')
+      } finally {
+        setIsCheckingAccess(false)
+      }
+    }
+    
+    checkMerchantAccess()
+  }, [router])
+
+  useEffect(() => {
+    fetchOrders()
+    const interval = setInterval(fetchOrders, 10000) // Refresh every 10s
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('/api/orders/pending')
+      const data = await res.json()
+      setOrders(data.orders || [])
+    } catch (error) {
+      console.error('Failed to fetch orders:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const confirmPayment = async (orderId: string) => {
+    try {
+      await fetch('/api/orders/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, paymentReference: paymentRef }),
+      })
+      setPaymentRef('')
+      fetchOrders()
+    } catch (error) {
+      alert('Failed to confirm payment')
+    }
+  }
+
+  const pendingOrders = orders.filter(o => o.status === 'pending')
+  const readyToFulfill = orders.filter(o => o.status === 'payment_received')
+
+  // Show loading while checking access
+  if (isCheckingAccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verifying merchant access...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,82 +126,153 @@ function MerchantContent() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Welcome Section */}
         <div className="mb-12">
           <h2 className="text-3xl font-bold mb-2">Merchant Dashboard</h2>
-          <p className="text-muted-foreground">Manage your merchant account and fulfill conversion requests</p>
+          <p className="text-muted-foreground">Manage orders and fulfill USDC conversions</p>
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
+        <div className="grid md:grid-cols-3 gap-6 mb-12">
           <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">0</div>
-              <p className="text-xs text-muted-foreground mt-1">Awaiting fulfillment</p>
+              <div className="text-3xl font-bold text-primary">{pendingOrders.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting payment confirmation</p>
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Monthly Volume</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ready to Fulfill</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-accent">$0</div>
-              <p className="text-xs text-muted-foreground mt-1">Current month</p>
+              <div className="text-3xl font-bold text-accent">{readyToFulfill.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Payment received</p>
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Daily Limit</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">$10,000</div>
-              <p className="text-xs text-muted-foreground mt-1">Available</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm font-bold text-yellow-500">Pending Approval</div>
-              <p className="text-xs text-muted-foreground mt-1">Under review</p>
+              <div className="text-3xl font-bold text-primary">{orders.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">All time</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Request for Approval */}
-        <Card className="bg-yellow-950/20 border-yellow-700/30 mb-12">
-          <CardHeader>
-            <div className="flex items-start gap-4">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-              <div>
-                <CardTitle className="text-yellow-50">Awaiting Admin Approval</CardTitle>
-                <CardDescription className="text-yellow-200/70">
-                  Your merchant account is currently pending approval from our admins. This typically takes 24-48 hours.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+        {/* Orders List */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Orders - Awaiting Payment</CardTitle>
+              <CardDescription>Customers are making UPI payments. Confirm when received.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {pendingOrders.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No pending orders</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingOrders.map((order) => (
+                    <Card key={order.id} className="border-yellow-500/30 bg-yellow-950/10">
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                            <p className="font-semibold">{order.users?.email}</p>
+                          </div>
+                          <Clock className="w-5 h-5 text-yellow-500" />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-zinc-900 rounded-md">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Amount (INR)</p>
+                            <p className="font-bold">₹{order.fiat_amount}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">USDC to Send</p>
+                            <p className="font-bold">{order.usdc_amount} USDC</p>
+                          </div>
+                        </div>
 
-        {/* Requests Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Orders</CardTitle>
-            <CardDescription>Orders waiting for your fulfillment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No pending orders at this time</p>
-            </div>
-          </CardContent>
-        </Card>
+                        <div className="space-y-2">
+                          <Label>Payment Reference / UPI ID</Label>
+                          <Input
+                            placeholder="Enter UPI transaction ID"
+                            value={selectedOrder?.id === order.id ? paymentRef : ''}
+                            onChange={(e) => {
+                              setSelectedOrder(order)
+                              setPaymentRef(e.target.value)
+                            }}
+                          />
+                          <Button
+                            onClick={() => confirmPayment(order.id)}
+                            disabled={!paymentRef}
+                            className="w-full"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Confirm Payment Received
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ready to Fulfill - Send USDC</CardTitle>
+              <CardDescription>Payment confirmed. Send USDC to complete the order.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {readyToFulfill.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No orders ready to fulfill</p>
+              ) : (
+                <div className="space-y-4">
+                  {readyToFulfill.map((order) => {
+                    const recipientAddress = order.users?.smart_wallet_address || order.users?.embedded_wallet_address || order.user_wallet_address
+                    
+                    return (
+                      <Card key={order.id} className="border-green-500/30 bg-green-950/10">
+                        <CardContent className="pt-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                              <p className="font-semibold">{order.users?.email}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Ref: {order.payment_reference}</p>
+                            </div>
+                            <Send className="w-5 h-5 text-green-500" />
+                          </div>
+                          
+                          {recipientAddress ? (
+                            <SendUSDC
+                              recipientAddress={recipientAddress}
+                              amount={order.usdc_amount.toString()}
+                              orderId={order.id}
+                              onSuccess={() => fetchOrders()}
+                            />
+                          ) : (
+                            <div className="p-4 bg-red-950/20 border border-red-500/30 rounded-md">
+                              <p className="text-sm text-red-200">
+                                ⚠️ User wallet address not found. Ask user to login first.
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )

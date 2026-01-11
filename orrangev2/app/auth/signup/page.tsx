@@ -12,10 +12,37 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (authenticated) {
-      router.push("/dashboard/setup")
+    const checkUserTypeAndRedirect = async () => {
+      if (authenticated && user) {
+        try {
+          // First check Privy custom metadata (fastest)
+          const userTypeFromMetadata = (user as any).customMetadata?.user_type;
+          console.log('[Signup] User type from Privy metadata:', userTypeFromMetadata);
+          
+          if (userTypeFromMetadata === 'merchant') {
+            console.log('[Signup] Redirecting to /merchant (from metadata)');
+            router.push('/merchant');
+            return;
+          }
+          
+          if (userTypeFromMetadata === 'admin') {
+            console.log('[Signup] Redirecting to /admin (from metadata)');
+            router.push('/admin');
+            return;
+          }
+          
+          // Default: new users go to setup
+          console.log('[Signup] Redirecting to /dashboard/setup');
+          router.push('/dashboard/setup');
+        } catch (error) {
+          console.error('Error checking user type:', error);
+          router.push('/dashboard/setup');
+        }
+      }
     }
-  }, [authenticated, router])
+    
+    checkUserTypeAndRedirect();
+  }, [authenticated, user, router])
 
   const handleSignup = async () => {
     setIsLoading(true)
