@@ -10,12 +10,12 @@ export const runtime = 'nodejs';
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { privyId } = await requirePrivyUser(request);
     const supabase = await createClient();
-    const orderId = params.id;
+    const { id: orderId } = await params;
     const { paymentReference } = await request.json();
 
     if (!paymentReference) {

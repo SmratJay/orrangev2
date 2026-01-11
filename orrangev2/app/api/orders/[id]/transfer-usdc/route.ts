@@ -11,11 +11,11 @@ export const runtime = 'nodejs';
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     // Get order with merchant and user info
     const { data: order } = await supabase
