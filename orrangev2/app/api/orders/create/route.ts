@@ -31,48 +31,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get an available merchant (simple round-robin for now)
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, upi_id')
-      .eq('is_active', true)
-      .limit(1)
-      .single();
-
-    if (!merchant) {
-      return NextResponse.json({ error: 'No active merchants available' }, { status: 503 });
-    }
-
-    // Create order (no escrow needed - merchant wallet holds USDC)
+    // Create order WITHOUT assigning merchant (merchant accepts manually)
     const { data: order, error } = await supabase
       .from('orders')
       .insert({
         user_id: user.id,
-        merchant_id: merchant.id,
+        merchant_id: null, // No merchant assigned yet
         type: type.toLowerCase(),
         fiat_amount: fiatAmount,
         usdc_amount: usdcAmount,
-        status: 'pending',
+        status: 'pending', // Will change to 'accepted'/'merchant_accepted' when merchant accepts
+        user_wallet_address: userWalletAddress || user.embedded_wallet_address,
       })
       .select()
       .single();
 
     if (error) {
       console.error('Error creating order:', error);
-      return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create order', details: error.message }, { status: 500 });
     }
 
     console.log('[Order Created]', {
       orderId: order.id,
       userId: user.id,
-      merchantId: merchant.id,
       amount: `₹${fiatAmount} → ${usdcAmount} USDC`,
+      status: 'pending (waiting for merchant to accept)',
     });
 
     return NextResponse.json({ 
       success: true, 
       order,
-      merchantUpi: merchant.upi_id,
     });
   } catch (error) {
     console.error('[orders/create] Error:', error);

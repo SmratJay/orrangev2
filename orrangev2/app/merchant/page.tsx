@@ -144,20 +144,31 @@ function MerchantContent() {
   useEffect(() => {
     const getMerchantId = async () => {
       try {
+        console.log('[Merchant] Fetching merchant ID...')
         const res = await fetch('/api/users/me')
         const data = await res.json()
+        console.log('[Merchant] User data:', data)
         if (data.merchant_id) {
+          console.log('[Merchant] Merchant ID:', data.merchant_id)
           setMerchantId(data.merchant_id)
+        } else {
+          console.log('[Merchant] No merchant_id in response')
         }
       } catch (error) {
-        console.error('Failed to get merchant ID:', error)
+        console.error('[Merchant] Failed to get merchant ID:', error)
       }
     }
     getMerchantId()
   }, [])
 
   // Orders to fulfill: new orders not yet accepted by any merchant
-  const ordersToFulfill = orders.filter(o => o.status === 'pending' && !o.merchant_id)
+  const ordersToFulfill = orders.filter(o => {
+    const match = o.status === 'pending' && !o.merchant_id
+    if (orders.length > 0 && orders.length < 10) {
+      console.log('[Merchant] Order', o.id.slice(0,8), '- status:', o.status, 'merchant_id:', o.merchant_id, 'match:', match)
+    }
+    return match
+  })
   
   // Pending orders: orders accepted by THIS merchant, awaiting payment confirmation
   const pendingOrders = orders.filter(o => 
@@ -166,6 +177,15 @@ function MerchantContent() {
   )
   
   const readyToFulfill = orders.filter(o => o.status === 'payment_received' && o.merchant_id === merchantId)
+
+  console.log('[Merchant] Filter results:', {
+    merchantId,
+    totalOrders: orders.length,
+    ordersToFulfill: ordersToFulfill.length,
+    pendingOrders: pendingOrders.length,
+    readyToFulfill: readyToFulfill.length,
+    orderStatuses: orders.map(o => ({ id: o.id.slice(0,8), status: o.status, merchant_id: o.merchant_id }))
+  })
 
   // Show loading while checking access
   if (isCheckingAccess) {
