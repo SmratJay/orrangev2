@@ -29,8 +29,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    console.log('[API /users/me] Returning user:', user);
-    return NextResponse.json(user);
+    // If user is a merchant, fetch merchant_id
+    let responseData = { ...user };
+    if (user.user_type === 'merchant') {
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (merchant) {
+        responseData.merchant_id = merchant.id;
+      }
+    }
+
+    console.log('[API /users/me] Returning user:', responseData);
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
