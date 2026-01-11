@@ -15,45 +15,38 @@ export default function LoginPage() {
     const checkUserTypeAndRedirect = async () => {
       if (authenticated && user) {
         try {
-          // First check Privy custom metadata (fastest)
-          const userTypeFromMetadata = (user as any).customMetadata?.user_type;
-          console.log('[Login] User type from Privy metadata:', userTypeFromMetadata);
+          console.log('[Login] Checking user type from database...');
           
-          if (userTypeFromMetadata === 'merchant') {
-            console.log('[Login] Redirecting to /merchant (from metadata)');
-            router.push('/merchant');
-            return;
-          }
+          // Always check database (source of truth)
+          const userResponse = await fetch('/api/users/me');
           
-          if (userTypeFromMetadata === 'admin') {
-            console.log('[Login] Redirecting to /admin (from metadata)');
-            router.push('/admin');
-            return;
-          }
-          
-          // Fallback: Check database if no metadata
-          if (!userTypeFromMetadata) {
-            console.log('[Login] No metadata, checking database...');
-            const userResponse = await fetch(`/api/users/me`);
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              console.log('[Login] User data from DB:', userData);
-              
-              if (userData.user_type === 'merchant') {
-                router.push('/merchant');
-                return;
-              } else if (userData.user_type === 'admin') {
-                router.push('/admin');
-                return;
-              }
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            console.log('[Login] User data from DB:', userData);
+            
+            if (userData.user_type === 'merchant') {
+              console.log('[Login] Redirecting to /merchant');
+              router.push('/merchant');
+              return;
             }
+            
+            if (userData.user_type === 'admin') {
+              console.log('[Login] Redirecting to /admin');
+              router.push('/admin');
+              return;
+            }
+            
+            // Regular user - go to dashboard
+            console.log('[Login] Redirecting to /dashboard');
+            router.push('/dashboard');
+            return;
           }
           
-          // Default to dashboard
-          console.log('[Login] Redirecting to /dashboard');
-          router.push('/dashboard');
+          // User not found in database - new user, shouldn't happen on login
+          console.log('[Login] User not in database, redirecting to /dashboard/setup');
+          router.push('/dashboard/setup');
         } catch (error) {
-          console.error('Error checking user type:', error);
+          console.error('[Login] Error checking user type:', error);
           router.push('/dashboard');
         }
       }

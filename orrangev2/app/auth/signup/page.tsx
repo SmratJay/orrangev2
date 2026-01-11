@@ -15,27 +15,41 @@ export default function SignupPage() {
     const checkUserTypeAndRedirect = async () => {
       if (authenticated && user) {
         try {
-          // First check Privy custom metadata (fastest)
-          const userTypeFromMetadata = (user as any).customMetadata?.user_type;
-          console.log('[Signup] User type from Privy metadata:', userTypeFromMetadata);
+          console.log('[Signup] Checking if user exists in database...');
           
-          if (userTypeFromMetadata === 'merchant') {
-            console.log('[Signup] Redirecting to /merchant (from metadata)');
-            router.push('/merchant');
+          // Check database for existing user (source of truth)
+          const response = await fetch('/api/users/me');
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('[Signup] Existing user found:', userData.user_type);
+            
+            // Redirect based on user_type from database
+            if (userData.user_type === 'merchant') {
+              console.log('[Signup] Redirecting to /merchant');
+              router.push('/merchant');
+              return;
+            }
+            
+            if (userData.user_type === 'admin') {
+              console.log('[Signup] Redirecting to /admin');
+              router.push('/admin');
+              return;
+            }
+            
+            // Regular user - go to dashboard
+            console.log('[Signup] Redirecting to /dashboard');
+            router.push('/dashboard');
             return;
           }
           
-          if (userTypeFromMetadata === 'admin') {
-            console.log('[Signup] Redirecting to /admin (from metadata)');
-            router.push('/admin');
-            return;
-          }
-          
-          // Default: new users go to setup
-          console.log('[Signup] Redirecting to /dashboard/setup');
+          // User doesn't exist in database - new signup
+          console.log('[Signup] New user, redirecting to /dashboard/setup');
           router.push('/dashboard/setup');
+          
         } catch (error) {
-          console.error('Error checking user type:', error);
+          console.error('[Signup] Error checking user:', error);
+          // On error, assume new user
           router.push('/dashboard/setup');
         }
       }
