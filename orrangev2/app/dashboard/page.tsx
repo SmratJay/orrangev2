@@ -16,11 +16,13 @@ function DashboardContent() {
   const { wallets, ready: walletsReady } = useWallets()
   const { createWallet } = useCreateWallet()
   const router = useRouter()
-  const [view, setView] = useState<'overview' | 'buy'>('overview')
+  const [view, setView] = useState<'overview' | 'buy' | 'history'>('overview')
   const [isCheckingUserType, setIsCheckingUserType] = useState(true)
   const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null)
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [orders, setOrders] = useState<any[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
 
   // Get embedded wallet address - recheck when wallets change
   useEffect(() => {
@@ -58,6 +60,27 @@ function DashboardContent() {
       setTimeout(() => setCopiedAddress(false), 2000)
     }
   }
+
+  // Fetch user's orders
+  const fetchOrders = async () => {
+    setLoadingOrders(true)
+    try {
+      const res = await fetch('/api/orders/my-orders')
+      const data = await res.json()
+      setOrders(data.orders || [])
+    } catch (error) {
+      console.error('Failed to fetch orders:', error)
+    } finally {
+      setLoadingOrders(false)
+    }
+  }
+
+  // Fetch orders when viewing history
+  useEffect(() => {
+    if (view === 'history') {
+      fetchOrders()
+    }
+  }, [view])
 
   useEffect(() => {
     const checkUserType = async () => {
@@ -134,7 +157,7 @@ function DashboardContent() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Back Button */}
-        {view === 'buy' && (
+        {(view === 'buy' || view === 'history') && (
           <Button 
             variant="ghost" 
             className="mb-6 flex items-center gap-2" 
@@ -150,6 +173,63 @@ function DashboardContent() {
           <div className="flex justify-center">
             <BuyForm />
           </div>
+        ) : view === 'history' ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Order History</CardTitle>
+              <CardDescription>Your past orders and transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingOrders ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                  <p className="text-muted-foreground mt-2">Loading orders...</p>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No orders yet. Start your first conversion!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <Card key={order.id} className="border-border hover:border-primary/50 transition cursor-pointer"
+                      onClick={() => router.push(`/order/${order.id}`)}
+                    >
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
+                          </div>
+                          <span className={`px-2 py-1 text-xs rounded ${
+                            order.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                            order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                            order.status === 'merchant_accepted' || order.status === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Amount</p>
+                            <p className="font-semibold">₹{order.fiat_amount}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">USDC</p>
+                            <p className="font-semibold">{order.usdc_amount} USDC</p>
+                          </div>
+                        </div>
+                        <Button variant="outline" className="w-full mt-4" size="sm">
+                          View Details →
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         ) : (
           <>
             {/* Welcome Section */}
@@ -277,7 +357,10 @@ function DashboardContent() {
               </Card>
 
               {/* HISTORY CARD */}
-              <Card className="border-border hover:border-primary/30 transition cursor-pointer">
+              <Card 
+                className="border-border hover:border-primary/30 transition cursor-pointer"
+                onClick={() => setView('history')}
+              >
                 <CardHeader>
                   <History className="w-8 h-8 text-muted-foreground mb-2" />
                   <CardTitle>History</CardTitle>

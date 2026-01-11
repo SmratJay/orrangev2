@@ -48,7 +48,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Error creating order:', error);
-      return NextResponse.json({ error: 'Failed to create order', details: error.message }, { status: 500 });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        error: 'Failed to create order', 
+        details: error.message || 'Unknown error',
+        hint: error.hint || null 
+      }, { status: 500 });
     }
 
     console.log('[Order Created]', {
