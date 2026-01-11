@@ -1,15 +1,16 @@
 "use client"
 
-import { usePrivy } from "@privy-io/react-auth"
+import { usePrivy, useWallets } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, CheckCircle, Clock, Send } from "lucide-react"
+import { LogOut, CheckCircle, Clock, Send, Copy, Wallet as WalletIcon, RefreshCw } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
 import { useState, useEffect } from "react"
 import { SendUSDC } from "@/components/send-usdc"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { WalletBalance } from "@/components/wallet-balance"
 
 interface Order {
   id: string
@@ -30,12 +31,34 @@ interface Order {
 
 function MerchantContent() {
   const { user, logout } = usePrivy()
+  const { wallets, ready: walletsReady } = useWallets()
   const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [paymentRef, setPaymentRef] = useState('')
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
+  const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null)
+  const [copiedAddress, setCopiedAddress] = useState(false)
+
+  // Get embedded wallet address
+  useEffect(() => {
+    if (walletsReady && wallets && wallets.length > 0) {
+      const embedded = wallets.find((w) => w.walletClientType === 'privy')
+      if (embedded) {
+        setEmbeddedWalletAddress(embedded.address)
+      }
+    }
+  }, [wallets, walletsReady])
+
+  // Copy address to clipboard
+  const copyAddress = () => {
+    if (embeddedWalletAddress) {
+      navigator.clipboard.writeText(embeddedWalletAddress)
+      setCopiedAddress(true)
+      setTimeout(() => setCopiedAddress(false), 2000)
+    }
+  }
 
   // Check if user is actually a merchant
   useEffect(() => {
@@ -130,6 +153,62 @@ function MerchantContent() {
           <h2 className="text-3xl font-bold mb-2">Merchant Dashboard</h2>
           <p className="text-muted-foreground">Manage orders and fulfill USDC conversions</p>
         </div>
+
+        {/* Wallet Info */}
+        <Card className="border-border mb-8 bg-gradient-to-br from-primary/5 to-accent/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <WalletIcon className="w-5 h-5 text-primary" />
+              Your Merchant Wallet
+            </CardTitle>
+            <CardDescription>This wallet is used to send USDC to customers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Wallet Address */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Wallet Address (Sepolia)</p>
+                {embeddedWalletAddress ? (
+                  <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 rounded-md">
+                    <code className="text-sm font-mono text-primary flex-1 truncate">
+                      {embeddedWalletAddress}
+                    </code>
+                    <button 
+                      onClick={copyAddress}
+                      className="p-1 hover:bg-zinc-800 rounded transition-colors"
+                      title="Copy address"
+                    >
+                      <Copy className={`w-4 h-4 ${copiedAddress ? 'text-green-500' : 'text-muted-foreground'}`} />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading wallet...</p>
+                )}
+                {copiedAddress && (
+                  <p className="text-xs text-green-500 mt-1">Copied to clipboard!</p>
+                )}
+              </div>
+              
+              {/* USDC Balance */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">USDC Balance</p>
+                <WalletBalance />
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground mt-4 border-t border-border pt-4">
+              💡 Fund this wallet with USDC on Sepolia testnet. Get test USDC from{' '}
+              <a 
+                href="https://faucet.circle.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Circle Faucet
+              </a>
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
