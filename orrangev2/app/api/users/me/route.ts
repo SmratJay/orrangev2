@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     }
 
     // If user is a merchant, fetch merchant_id
-    let responseData = { ...user };
+    let responseData: any = { ...user };
     if (user.user_type === 'merchant') {
       const { data: merchant } = await supabase
         .from('merchants')
