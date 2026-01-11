@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { usePrivy } from '@privy-io/react-auth';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, IndianRupee, Wallet } from 'lucide-react';
 
@@ -46,6 +47,8 @@ export default function MerchantOrderPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [customPaymentRef, setCustomPaymentRef] = useState('');
+  const [useCustomRef, setUseCustomRef] = useState(false);
 
   // Fetch order data via API
   const fetchOrder = useCallback(async () => {
@@ -306,17 +309,88 @@ export default function MerchantOrderPage() {
 
         {/* Status: Merchant Accepted - Waiting for payment */}
         {order.status === 'merchant_accepted' && (
-          <Card className="border-blue-500">
-            <CardHeader>
-              <CardTitle className="text-blue-500">Waiting for Customer Payment</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                The customer has been notified to pay ₹{order.fiat_amount} to your UPI ID.
-                You'll be notified when they submit payment.
-              </p>
-            </CardContent>
-          </Card>
+          <>
+            <Card className="border-blue-500">
+              <CardHeader>
+                <CardTitle className="text-blue-500">Your UPI ID for Payment</CardTitle>
+                <CardDescription>
+                  Share this with the customer or they should already have it
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* UPI ID */}
+                {data.merchant?.upi_id && (
+                  <div>
+                    <Label>UPI ID</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 p-3 bg-muted rounded-lg font-mono font-medium text-lg">
+                        {data.merchant.upi_id}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          navigator.clipboard.writeText(data.merchant!.upi_id);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                      >
+                        {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Payment Reference Options */}
+                <div className="space-y-3">
+                  <Label>Expected Payment Reference (Optional)</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="useDefaultRef"
+                        checked={!useCustomRef}
+                        onChange={() => setUseCustomRef(false)}
+                        className="w-4 h-4"
+                      />
+                      <label htmlFor="useDefaultRef" className="text-sm">
+                        Use default UPI ID as reference: <code className="bg-muted px-2 py-1 rounded">{data.merchant?.upi_id}</code>
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="useCustomRef"
+                        checked={useCustomRef}
+                        onChange={() => setUseCustomRef(true)}
+                        className="w-4 h-4"
+                      />
+                      <label htmlFor="useCustomRef" className="text-sm">
+                        Use custom payment reference
+                      </label>
+                    </div>
+                    {useCustomRef && (
+                      <Input
+                        placeholder="Enter custom payment reference/ID"
+                        value={customPaymentRef}
+                        onChange={(e) => setCustomPaymentRef(e.target.value)}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    💡 This will be shown to the customer and should match what they enter after payment
+                  </p>
+                </div>
+
+                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-sm">
+                    ⏳ Waiting for customer to send payment...
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {/* Status: Payment Sent - Confirm payment */}

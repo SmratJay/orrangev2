@@ -15,6 +15,7 @@ import { WalletBalance } from "@/components/wallet-balance"
 interface Order {
   id: string
   user_id: string
+  merchant_id?: string | null
   type: string
   status: string
   fiat_amount: number
@@ -103,22 +104,59 @@ function MerchantContent() {
     }
   }
 
-  const confirmPayment = async (orderId: string) => {
+  const acceptOrder = async (orderId: string) => {
     try {
-      await fetch('/api/orders/confirm-payment', {
+      const authToken = localStorage.getItem('privy:token')
+      const res = await fetch(`/api/orders/${orderId}/accept`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, paymentReference: paymentRef }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
       })
-      setPaymentRef('')
-      fetchOrders()
+      
+      if (!res.ok) {
+        const error = await res.json()
+        alert(error.error || 'Failed to accept order')
+        return
+      }
+      
+      // Navigate to merchant order page
+      router.push(`/merchant/order/${orderId}`)
     } catch (error) {
-      alert('Failed to confirm payment')
+      console.error('Failed to accept order:', error)
+      alert('Failed to accept order')
     }
   }
 
-  const pendingOrders = orders.filter(o => o.status === 'pending')
-  const readyToFulfill = orders.filter(o => o.status === 'payment_received')
+  // Get merchant ID from user
+  const [merchantId, setMerchantId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const getMerchantId = async () => {
+      try {
+        const res = await fetch('/api/users/me')
+        const data = await res.json()
+        if (data.merchant_id) {
+          setMerchantId(data.merchant_id)
+        }
+      } catch (error) {
+        console.error('Failed to get merchant ID:', error)
+      }
+    }
+    getMerchantId()
+  }, [])
+
+  // Orders to fulfill: new orders not yet accepted by any merchant
+  const ordersToFulfill = orders.filter(o => o.status === 'pending' && !o.merchant_id)
+  
+  // Pending orders: orders accepted by THIS merchant, awaiting payment confirmation
+  const pendingOrders = orders.filter(o => 
+    (o.status === 'accepted' || o.status === 'merchant_accepted') && 
+    o.merchant_id === merchantId
+  )
+  
+  const readyToFulfill = orders.filter(o => o.status === 'payment_received' && o.merchant_id === merchantId)
 
   // Show loading while checking access
   if (isCheckingAccess) {
@@ -211,23 +249,33 @@ function MerchantContent() {
         </Card>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="grid md:grid-cols-4 gap-6 mb-12">
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">New Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">{pendingOrders.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">Awaiting payment confirmation</p>
+              <div className="text-3xl font-bold text-blue-500">{ordersToFulfill.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Available to accept</p>
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ready to Fulfill</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-accent">{readyToFulfill.length}</div>
+              <div className="text-3xl font-bold text-yellow-500">{pendingOrders.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting payment</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ready to Send</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-500">{readyToFulfill.length}</div>
               <p className="text-xs text-muted-foreground mt-1">Payment received</p>
             </CardContent>
           </Card>
@@ -245,10 +293,59 @@ function MerchantContent() {
 
         {/* Orders List */}
         <div className="space-y-6">
+          {/* New Orders - To Be Accepted */}
           <Card>
             <CardHeader>
-              <CardTitle>Pending Orders - Awaiting Payment</CardTitle>
-              <CardDescription>Customers are making UPI payments. Confirm when received.</CardDescription>
+              <CardTitle>📋 Orders to Fulfill</CardTitle>
+              <CardDescription>New orders from customers. Accept to start processing.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {ordersToFulfill.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No new orders</p>
+              ) : (
+                <div className="space-y-4">
+                  {ordersToFulfill.map((order) => (
+                    <Card key={order.id} className="border-blue-500/30 bg-blue-950/10">
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                            <p className="font-semibold">{order.users?.email}</p>
+                          </div>
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 rounded">NEW</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-zinc-900 rounded-md">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Amount (INR)</p>
+                            <p className="font-bold">₹{order.fiat_amount}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">USDC to Send</p>
+                            <p className="font-bold">{order.usdc_amount} USDC</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => acceptOrder(order.id)}
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Accept Order
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pending Orders - Accepted, Awaiting Payment */}
+          <Card>
+            <CardHeader>
+              <CardTitle>⏳ Pending Orders - Awaiting Payment</CardTitle>
+              <CardDescription>Orders you accepted. Waiting for customer payment confirmation.</CardDescription>
             </CardHeader>
             <CardContent>
               {pendingOrders.length === 0 ? (
@@ -277,25 +374,13 @@ function MerchantContent() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Payment Reference / UPI ID</Label>
-                          <Input
-                            placeholder="Enter UPI transaction ID"
-                            value={selectedOrder?.id === order.id ? paymentRef : ''}
-                            onChange={(e) => {
-                              setSelectedOrder(order)
-                              setPaymentRef(e.target.value)
-                            }}
-                          />
-                          <Button
-                            onClick={() => confirmPayment(order.id)}
-                            disabled={!paymentRef}
-                            className="w-full"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Confirm Payment Received
-                          </Button>
-                        </div>
+                        <Button
+                          onClick={() => router.push(`/merchant/order/${order.id}`)}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          View Order Details →
+                        </Button>
                       </CardContent>
                     </Card>
                   ))}
