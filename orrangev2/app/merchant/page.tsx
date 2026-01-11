@@ -1,6 +1,6 @@
 "use client"
 
-import { usePrivy, useWallets } from "@privy-io/react-auth"
+import { usePrivy, useWallets, getAccessToken } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -94,11 +94,20 @@ function MerchantContent() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders/pending')
+      console.log('[Merchant] Fetching orders...')
+      const authToken = await getAccessToken()
+      console.log('[Merchant] Auth token:', authToken ? 'present' : 'missing')
+      
+      const res = await fetch('/api/orders/pending', {
+        credentials: 'include',
+        headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+      })
+      console.log('[Merchant] Response status:', res.status)
       const data = await res.json()
+      console.log('[Merchant] Orders data:', data)
       setOrders(data.orders || [])
     } catch (error) {
-      console.error('Failed to fetch orders:', error)
+      console.error('[Merchant] Failed to fetch orders:', error)
     } finally {
       setLoading(false)
     }
