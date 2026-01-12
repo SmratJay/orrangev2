@@ -177,6 +177,9 @@ function MerchantContent() {
   )
   
   const readyToFulfill = orders.filter(o => o.status === 'payment_received' && o.merchant_id === merchantId)
+  
+  // My Orders: all orders assigned to this merchant (any status except pending with null merchant_id)
+  const myOrders = orders.filter(o => o.merchant_id === merchantId)
 
   console.log('[Merchant] Filter results:', {
     merchantId,
@@ -184,6 +187,7 @@ function MerchantContent() {
     ordersToFulfill: ordersToFulfill.length,
     pendingOrders: pendingOrders.length,
     readyToFulfill: readyToFulfill.length,
+    myOrders: myOrders.length,
     orderStatuses: orders.map(o => ({ id: o.id.slice(0,8), status: o.status, merchant_id: o.merchant_id }))
   })
 
@@ -311,11 +315,11 @@ function MerchantContent() {
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Orders</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">My Orders</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">{orders.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">All time</p>
+              <div className="text-3xl font-bold text-primary">{myOrders.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Assigned to you</p>
             </CardContent>
           </Card>
         </div>
@@ -457,6 +461,65 @@ function MerchantContent() {
                               </p>
                             </div>
                           )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* My Orders - All orders assigned to this merchant */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📦 My Orders</CardTitle>
+              <CardDescription>All orders assigned to you. Click to view details.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {myOrders.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No orders yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {myOrders.map((order) => {
+                    const statusColors: { [key: string]: string } = {
+                      'merchant_accepted': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+                      'payment_received': 'bg-green-500/20 text-green-300 border-green-500/30',
+                      'completed': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                      'cancelled': 'bg-red-500/20 text-red-300 border-red-500/30',
+                    }
+                    const statusColor = statusColors[order.status] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+                    
+                    return (
+                      <Card 
+                        key={order.id} 
+                        className={`border ${statusColor} cursor-pointer hover:opacity-80 transition-opacity`}
+                        onClick={() => router.push(`/merchant/order/${order.id}`)}
+                      >
+                        <CardContent className="pt-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                              <p className="font-semibold">{order.users?.email}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(order.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            <span className="px-2 py-1 text-xs font-medium rounded capitalize">
+                              {order.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 p-3 bg-zinc-900 rounded-md">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Amount (INR)</p>
+                              <p className="font-bold">₹{order.fiat_amount}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">USDC to Send</p>
+                              <p className="font-bold">{order.usdc_amount} USDC</p>
+                            </div>
+                          </div>
                         </CardContent>
                       </Card>
                     )

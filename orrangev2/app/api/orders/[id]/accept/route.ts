@@ -51,8 +51,11 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    if (order.merchant_id !== merchant.id) {
-      return NextResponse.json({ error: 'Not your order' }, { status: 403 });
+    // Allow accepting orders that are either:
+    // 1. Unassigned (merchant_id is null)
+    // 2. Already assigned to this merchant
+    if (order.merchant_id !== null && order.merchant_id !== merchant.id) {
+      return NextResponse.json({ error: 'This order is already assigned to another merchant' }, { status: 403 });
     }
 
     if (order.status !== 'pending') {
@@ -77,10 +80,11 @@ export async function POST(
       console.log('[Order Accept] ✅ Server signing enabled (first-time setup)');
     }
 
-    // Update order to merchant_accepted
+    // Update order to merchant_accepted and assign to this merchant
     const { error } = await supabase
       .from('orders')
       .update({
+        merchant_id: merchant.id,
         status: 'merchant_accepted',
         merchant_accepted_at: new Date().toISOString(),
       })
@@ -103,6 +107,10 @@ export async function POST(
     });
   } catch (error) {
     console.error('[orders/accept] Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('[orders/accept] Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
