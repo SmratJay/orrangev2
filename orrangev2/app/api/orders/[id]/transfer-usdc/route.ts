@@ -67,24 +67,29 @@ export async function POST(
     }
 
     // Check merchant has sufficient USDC balance
+    console.log('[USDC Transfer] Checking merchant balance', {
+      orderId,
+      merchantAddress: merchantWallet.embedded_wallet_address,
+      requiredAmount: order.usdc_amount,
+    });
+
     const merchantBalance = await getUSDCBalance(merchantWallet.embedded_wallet_address);
+    console.log('[USDC Transfer] Merchant balance:', merchantBalance, 'USDC');
+
     if (merchantBalance < order.usdc_amount) {
+      const errorMsg = `Insufficient merchant USDC balance. Has ${merchantBalance} USDC, needs ${order.usdc_amount} USDC`;
+      console.error('[USDC Transfer]', errorMsg);
       return NextResponse.json({ 
         error: 'Insufficient merchant USDC balance',
-        detail: `Merchant has ${merchantBalance} USDC, needs ${order.usdc_amount} USDC`
+        detail: errorMsg
       }, { status: 400 });
     }
-
-    // Update status to processing
-    await supabase
-      .from('orders')
-      .update({ status: 'usdc_transferred' })
-      .eq('id', orderId);
 
     // Transfer USDC directly from merchant to user using Privy server signing
     console.log('[USDC Transfer] Starting transfer', {
       orderId,
       merchantWalletId: merchantWallet.privy_wallet_id,
+      from: merchantWallet.embedded_wallet_address,
       to: userWallet.embedded_wallet_address,
       amount: order.usdc_amount,
     });
@@ -95,11 +100,12 @@ export async function POST(
       order.usdc_amount
     );
 
-    console.log('[USDC Transfer] Success', { orderId, txHash });
+    console.log('[USDC Transfer] Transaction sent successfully', { orderId, txHash });
 
     const now = new Date().toISOString();
 
-    await supabase
+    // Update to completed with transaction hash
+    const { error: updateError } = await supabase
       .from('orders')
       .update({
         status: 'completed',
@@ -108,6 +114,13 @@ export async function POST(
         completed_at: now,
       })
       .eq('id', orderId);
+
+    if (updateError) {
+      console.error('[USDC Transfer] Failed to update order status:', updateError);
+      throw new Error('Transfer succeeded but failed to update order status');
+    }
+
+    console.log('[USDC Transfer] Order completed successfully', { orderId, txHash });
 
     return NextResponse.json({ 
       success: true,

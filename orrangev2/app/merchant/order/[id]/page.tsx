@@ -147,6 +147,30 @@ export default function MerchantOrderPage() {
     }
   };
 
+  // Retry USDC transfer for stuck orders
+  const handleRetryTransfer = async () => {
+    setActionLoading('retry');
+    try {
+      const response = await fetch(`/api/orders/${orderId}/retry-transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to retry transfer');
+      }
+
+      await fetchOrder();
+      alert('Transfer retry successful!');
+    } catch (err) {
+      console.error('[MerchantOrderPage] Retry error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to retry transfer');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Copy payment reference
   const copyRef = () => {
     if (data?.order.payment_reference) {
@@ -454,11 +478,33 @@ export default function MerchantOrderPage() {
                 Processing USDC Transfer
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <p className="text-muted-foreground">
                 Your payment confirmation has been received. USDC is being transferred to the customer's wallet.
                 This usually takes a few seconds.
               </p>
+              
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  ⚠️ If the transfer is stuck for more than 30 seconds, you can retry it manually.
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRetryTransfer}
+                disabled={actionLoading === 'retry'}
+              >
+                {actionLoading === 'retry' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying Transfer...
+                  </>
+                ) : (
+                  'Retry USDC Transfer'
+                )}
+              </Button>
             </CardContent>
           </Card>
         )}

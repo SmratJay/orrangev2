@@ -59,6 +59,8 @@ export async function POST(
     }
 
     // Update order to payment_confirmed (this triggers backend USDC transfer)
+    console.log('[Payment Confirmed] Updating order status', { orderId, merchantId: merchant.id });
+
     const { error } = await supabase
       .from('orders')
       .update({
@@ -68,25 +70,52 @@ export async function POST(
       .eq('id', orderId);
 
     if (error) {
-      console.error('Error confirming payment:', error);
-      return NextResponse.json({ error: 'Failed to confirm payment' }, { status: 500 });
+      console.error('[Payment Confirmed] Error updating status:', JSON.stringify(error));
+      return NextResponse.json({ 
+        error: 'Failed to confirm payment',
+        detail: error.message 
+      }, { status: 500 });
     }
 
-    console.log('[Payment Confirmed]', { orderId, merchantId: merchant.id });
+    console.log('[Payment Confirmed] Status updated successfully', { orderId });
 
     // Trigger USDC transfer
     try {
       const baseUrl = request.url.split('/api')[0];
+      console.log('[Payment Confirmed] Triggering USDC transfer...', { orderId, baseUrl });
+
       const transferResponse = await fetch(`${baseUrl}/api/orders/${orderId}/transfer-usdc`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
+      const transferResult = await transferResponse.json();
+      console.log('[Payment Confirmed] Transfer response:', { 
+        ok: transferResponse.ok, 
+        status: transferResponse.status,
+        result: transferResult 
+      });
+
       if (!transferResponse.ok) {
-        console.error('[Payment Confirmed] USDC transfer failed');
+        console.error('[Payment Confirmed] USDC transfer failed:', transferResult);
+        return NextResponse.json({ 
+          error: 'Payment confirmed but USDC transfer failed',
+          detail: transferResult.error || transferResult.detail,
+          transferError: true
+        }, { status: 500 });
       }
+
+      console.log('[Payment Confirmed] USDC transfer completed successfully', { 
+        orderId, 
+        txHash: transferResult.txHash 
+      });
     } catch (transferError) {
       console.error('[Payment Confirmed] Error triggering USDC transfer:', transferError);
+      return NextResponse.json({ 
+        error: 'Payment confirmed but failed to trigger USDC transfer',
+        detail: transferError instanceof Error ? transferError.message : 'Unknown error',
+        transferError: true
+      }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
