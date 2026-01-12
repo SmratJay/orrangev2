@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { usePrivy } from '@privy-io/react-auth';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink } from 'lucide-react';
 
-type OrderStatus = 'pending' | 'merchant_accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
+type OrderStatus = 'pending' | 'accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
 
 interface OrderData {
   order: {
@@ -25,6 +25,7 @@ interface OrderData {
     payment_confirmed_at?: string;
     usdc_sent_at?: string;
     completed_at?: string;
+    custom_upi_id?: string;
   };
   merchant: {
     upi_id: string;
@@ -38,7 +39,7 @@ interface OrderData {
 
 const STATUS_STEPS: { status: OrderStatus; label: string; description: string }[] = [
   { status: 'pending', label: 'Order Created', description: 'Waiting for merchant to accept' },
-  { status: 'merchant_accepted', label: 'Merchant Accepted', description: 'Pay via UPI, then confirm' },
+  { status: 'accepted', label: 'Merchant Accepted', description: 'Pay via UPI, then confirm' },
   { status: 'payment_sent', label: 'Payment Submitted', description: 'Merchant verifying payment' },
   { status: 'payment_confirmed', label: 'Payment Confirmed', description: 'Transferring USDC...' },
   { status: 'completed', label: 'Completed', description: 'USDC transferred to your wallet!' },
@@ -138,8 +139,9 @@ export default function UserOrderPage() {
 
   // Copy UPI ID
   const copyUpiId = () => {
-    if (data?.merchant?.upi_id) {
-      navigator.clipboard.writeText(data.merchant.upi_id);
+    const upi = order ? (order.custom_upi_id || merchant?.upi_id) : null;
+    if (upi) {
+      navigator.clipboard.writeText(upi);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -186,6 +188,8 @@ export default function UserOrderPage() {
   const { order, merchant } = data;
   const currentStep = getCurrentStep();
   const isCompleted = order.status === 'completed';
+
+  const merchantUpi = order.custom_upi_id || merchant?.upi_id;
 
   return (
     <div className="min-h-screen bg-background">
@@ -266,7 +270,7 @@ export default function UserOrderPage() {
         {/* Action Area - depends on status */}
         
         {/* Status: Merchant Accepted - Show UPI payment form */}
-        {order.status === 'merchant_accepted' && merchant && (
+        {order.status === 'accepted' && merchant && (
           <Card className="border-primary">
             <CardHeader>
               <CardTitle className="text-primary">Pay via UPI</CardTitle>
@@ -280,7 +284,7 @@ export default function UserOrderPage() {
                 <Label>Merchant UPI ID</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-lg">
-                    {merchant.upi_id}
+                    {merchantUpi}
                   </div>
                   <Button variant="outline" size="icon" onClick={copyUpiId}>
                     {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}

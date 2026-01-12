@@ -95,9 +95,10 @@ export async function GET(
         payment_confirmed_at: order.payment_confirmed_at,
         usdc_sent_at: order.usdc_sent_at,
         completed_at: order.completed_at,
+        custom_upi_id: order.custom_upi_id,
       },
       merchant: order.merchants ? {
-        upi_id: order.merchants.upi_id,
+        upi_id: order.custom_upi_id || order.merchants.upi_id,
       } : null,
       user: order.users ? {
         email: order.users.email,

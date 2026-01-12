@@ -14,6 +14,8 @@ export async function POST(
 ) {
   try {
     const { privyId } = await requirePrivyUser(request);
+    const body = await request.json().catch(() => ({}));
+    const requestedUpi: string | undefined = body?.upiId?.toString().trim() || undefined;
     const supabase = await createClient();
     const { id: orderId } = await params;
 
@@ -28,10 +30,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized - merchant only' }, { status: 403 });
     }
 
-    // Get merchant record
+    // Get merchant record (need default UPI)
     const { data: merchant } = await supabase
       .from('merchants')
-      .select('id')
+      .select('id, upi_id')
       .eq('user_id', user.id)
       .single();
 
@@ -61,6 +63,9 @@ export async function POST(
       return NextResponse.json({ error: 'Order not in pending state' }, { status: 400 });
     }
 
+    // Use provided custom UPI or fall back to merchant default
+    const chosenUpi = requestedUpi || merchant.upi_id || null;
+
     // Update order to accepted and assign to this merchant
     const { error } = await supabase
       .from('orders')
@@ -68,6 +73,7 @@ export async function POST(
         merchant_id: merchant.id,
         status: 'accepted',
         merchant_accepted_at: new Date().toISOString(),
+        custom_upi_id: chosenUpi,
       })
       .eq('id', orderId);
 
@@ -78,7 +84,8 @@ export async function POST(
 
     console.log('[Order Accepted]', { 
       orderId, 
-      merchantId: merchant.id
+      merchantId: merchant.id,
+      chosenUpi
     });
 
     return NextResponse.json({ 

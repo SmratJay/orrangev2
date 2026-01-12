@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { usePrivy } from '@privy-io/react-auth';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, IndianRupee, Wallet } from 'lucide-react';
 
-type OrderStatus = 'pending' | 'merchant_accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
+type OrderStatus = 'pending' | 'accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
 
 interface OrderData {
   order: {
@@ -25,6 +25,7 @@ interface OrderData {
     payment_confirmed_at?: string;
     usdc_sent_at?: string;
     completed_at?: string;
+    custom_upi_id?: string;
   };
   merchant: {
     upi_id: string;
@@ -248,13 +249,13 @@ export default function MerchantOrderPage() {
           <CardContent>
             <div className={`p-4 rounded-lg flex items-center gap-3 ${
               order.status === 'pending' ? 'bg-yellow-500/10 border border-yellow-500/20' :
-              order.status === 'merchant_accepted' ? 'bg-blue-500/10 border border-blue-500/20' :
+              order.status === 'accepted' ? 'bg-blue-500/10 border border-blue-500/20' :
               order.status === 'payment_sent' ? 'bg-orange-500/10 border border-orange-500/20' :
               order.status === 'completed' ? 'bg-green-500/10 border border-green-500/20' :
               'bg-muted'
             }`}>
               {order.status === 'pending' && <Clock className="w-5 h-5 text-yellow-500" />}
-              {order.status === 'merchant_accepted' && <Clock className="w-5 h-5 text-blue-500" />}
+              {order.status === 'accepted' && <Clock className="w-5 h-5 text-blue-500" />}
               {order.status === 'payment_sent' && <AlertCircle className="w-5 h-5 text-orange-500" />}
               {(order.status === 'payment_confirmed' || order.status === 'usdc_transferred') && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
               {order.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
@@ -262,7 +263,7 @@ export default function MerchantOrderPage() {
               <div>
                 <p className="font-medium">
                   {order.status === 'pending' && 'Waiting for you to accept'}
-                  {order.status === 'merchant_accepted' && 'Waiting for customer payment'}
+                  {order.status === 'accepted' && 'Waiting for customer payment'}
                   {order.status === 'payment_sent' && 'Payment submitted - verify and confirm'}
                   {order.status === 'payment_confirmed' && 'Processing USDC transfer...'}
                   {order.status === 'usdc_transferred' && 'Finalizing order...'}
@@ -308,7 +309,7 @@ export default function MerchantOrderPage() {
         )}
 
         {/* Status: Merchant Accepted - Waiting for payment */}
-        {order.status === 'merchant_accepted' && (
+        {order.status === 'accepted' && (
           <>
             <Card className="border-blue-500">
               <CardHeader>
@@ -324,13 +325,13 @@ export default function MerchantOrderPage() {
                     <Label>UPI ID</Label>
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 p-3 bg-muted rounded-lg font-mono font-medium text-lg">
-                        {data.merchant.upi_id}
+                        {data.order.custom_upi_id || data.merchant.upi_id}
                       </div>
                       <Button
                         variant="outline"
                         size="icon"
                         onClick={() => {
-                          navigator.clipboard.writeText(data.merchant!.upi_id);
+                          navigator.clipboard.writeText((data.order.custom_upi_id || data.merchant!.upi_id));
                           setCopied(true);
                           setTimeout(() => setCopied(false), 2000);
                         }}

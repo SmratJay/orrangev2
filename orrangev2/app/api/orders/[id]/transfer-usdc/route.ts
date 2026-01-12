@@ -97,14 +97,15 @@ export async function POST(
 
     console.log('[USDC Transfer] Success', { orderId, txHash });
 
-    // Update order with transaction hash and completion
+    const now = new Date().toISOString();
+
     await supabase
       .from('orders')
       .update({
         status: 'completed',
         tx_hash: txHash,
-        usdc_sent_at: new Date().toISOString(),
-        completed_at: new Date().toISOString(),
+        usdc_sent_at: now,
+        completed_at: now,
       })
       .eq('id', orderId);
 

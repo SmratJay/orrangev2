@@ -48,7 +48,7 @@ export async function POST(
       return NextResponse.json({ error: 'Not your order' }, { status: 403 });
     }
 
-    if (order.status !== 'merchant_accepted') {
+    if (order.status !== 'accepted') {
       return NextResponse.json({ error: 'Order not in correct state' }, { status: 400 });
     }
 

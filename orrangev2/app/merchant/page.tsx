@@ -121,12 +121,16 @@ function MerchantContent() {
         return
       }
 
+      const upiInput = window.prompt('Enter UPI ID to use (leave blank to use your default UPI):')
+      const upiId = upiInput?.trim() || undefined
+
       const res = await fetch(`/api/orders/${orderId}/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
-        }
+        },
+        body: JSON.stringify({ upiId })
       })
       
       if (!res.ok) {
