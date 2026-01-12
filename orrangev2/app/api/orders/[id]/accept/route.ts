@@ -61,12 +61,12 @@ export async function POST(
       return NextResponse.json({ error: 'Order not in pending state' }, { status: 400 });
     }
 
-    // Update order to merchant_accepted and assign to this merchant
+    // Update order to accepted and assign to this merchant
     const { error } = await supabase
       .from('orders')
       .update({
         merchant_id: merchant.id,
-        status: 'merchant_accepted',
+        status: 'accepted',
         merchant_accepted_at: new Date().toISOString(),
       })
       .eq('id', orderId);
