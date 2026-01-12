@@ -39,12 +39,21 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('[my-orders] Error:', error);
-      throw error;
+      console.error('[my-orders] Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        error: 'Failed to fetch orders',
+        details: error.message,
+        hint: error.hint 
+      }, { status: 500 });
     }
 
     return NextResponse.json({ orders: orders || [] });
   } catch (error) {
     console.error('[my-orders] Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('[my-orders] Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

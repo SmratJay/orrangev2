@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
-import { ensureServerSigningEnabled } from '@/lib/auto-setup-signer';
 
 export const runtime = 'nodejs';
 
@@ -62,24 +61,6 @@ export async function POST(
       return NextResponse.json({ error: 'Order not in pending state' }, { status: 400 });
     }
 
-    // 🆕 LAZY INITIALIZATION: Auto-enable server signing on first order accept
-    // This works for both existing and new merchants
-    console.log('[Order Accept] Checking server signing status...');
-    
-    const signingSetup = await ensureServerSigningEnabled(user.id);
-    
-    if (!signingSetup.success) {
-      console.error('[Order Accept] Server signing setup failed:', signingSetup.error);
-      return NextResponse.json({ 
-        error: 'Failed to configure automatic payments. Please contact support.',
-        detail: signingSetup.error
-      }, { status: 500 });
-    }
-
-    if (!signingSetup.alreadySetup) {
-      console.log('[Order Accept] ✅ Server signing enabled (first-time setup)');
-    }
-
     // Update order to merchant_accepted and assign to this merchant
     const { error } = await supabase
       .from('orders')
@@ -92,18 +73,16 @@ export async function POST(
 
     if (error) {
       console.error('Error accepting order:', error);
-      return NextResponse.json({ error: 'Failed to accept order' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to accept order', details: error }, { status: 500 });
     }
 
     console.log('[Order Accepted]', { 
       orderId, 
-      merchantId: merchant.id,
-      signingEnabled: true 
+      merchantId: merchant.id
     });
 
     return NextResponse.json({ 
-      success: true,
-      firstTimeSetup: !signingSetup.alreadySetup
+      success: true
     });
   } catch (error) {
     console.error('[orders/accept] Error:', error);
