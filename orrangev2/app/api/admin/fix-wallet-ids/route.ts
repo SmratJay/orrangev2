@@ -53,23 +53,25 @@ export async function POST(request: Request) {
             account.type === 'wallet' && 
             account.walletClientType === 'privy' &&
             account.address.toLowerCase() === user.embedded_wallet_address.toLowerCase()
-        );
+        ) as any;
 
-        if (embeddedWallet) {
-          // Update database with wallet ID
+        if (embeddedWallet && embeddedWallet.id) {
+          // Update database with wallet ID (use 'id' property, not 'walletId')
+          const walletId = embeddedWallet.id;
+          
           const { error: updateError } = await supabase
             .from('users')
-            .update({ privy_wallet_id: embeddedWallet.walletId })
+            .update({ privy_wallet_id: walletId })
             .eq('id', user.id);
 
           if (updateError) {
             console.error(`[Fix Wallet IDs] Error updating user ${user.id}:`, updateError);
           } else {
-            console.log(`[Fix Wallet IDs] Updated user ${user.id} with wallet ID ${embeddedWallet.walletId}`);
+            console.log(`[Fix Wallet IDs] Updated user ${user.id} with wallet ID ${walletId}`);
             updates.push({
               user_id: user.id,
               privy_user_id: user.privy_user_id,
-              wallet_id: embeddedWallet.walletId,
+              wallet_id: walletId,
               wallet_address: user.embedded_wallet_address,
             });
           }
