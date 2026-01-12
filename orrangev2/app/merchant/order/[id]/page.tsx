@@ -91,13 +91,13 @@ export default function MerchantOrderPage() {
     fetchOrder();
   }, [privyReady, authenticated, fetchOrder, router]);
 
-  // Poll for updates (every 5 seconds)
+  // Poll for updates (every 2 seconds for faster status updates)
   useEffect(() => {
     if (!data || data.order.status === 'completed' || data.order.status === 'cancelled') {
       return;
     }
 
-    const interval = setInterval(fetchOrder, 5000);
+    const interval = setInterval(fetchOrder, 2000);
     return () => clearInterval(interval);
   }, [data, fetchOrder]);
 

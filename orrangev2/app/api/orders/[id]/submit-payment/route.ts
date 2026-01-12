@@ -63,7 +63,12 @@ export async function POST(
 
     if (error) {
       console.error('Error submitting payment:', error);
-      return NextResponse.json({ error: 'Failed to submit payment' }, { status: 500 });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      return NextResponse.json({ 
+        error: 'Failed to submit payment',
+        details: error.message,
+        hint: error.hint
+      }, { status: 500 });
     }
 
     console.log('[Payment Submitted]', { orderId, reference: paymentReference });
@@ -71,6 +76,10 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[orders/submit-payment] Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('[orders/submit-payment] Error details:', JSON.stringify(error, null, 2));
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink } from 'lucide-react';
 
 type OrderStatus = 'pending' | 'accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
@@ -97,13 +97,13 @@ export default function UserOrderPage() {
     fetchOrder();
   }, [privyReady, authenticated, fetchOrder, router]);
 
-  // Poll for updates (every 5 seconds)
+  // Poll for updates (every 2 seconds for faster status updates)
   useEffect(() => {
     if (!data || data.order.status === 'completed' || data.order.status === 'cancelled') {
       return;
     }
 
-    const interval = setInterval(fetchOrder, 5000);
+    const interval = setInterval(fetchOrder, 2000);
     return () => clearInterval(interval);
   }, [data, fetchOrder]);
 
@@ -116,9 +116,13 @@ export default function UserOrderPage() {
 
     setActionLoading(true);
     try {
+      const authToken = await getAccessToken();
       const response = await fetch(`/api/orders/${orderId}/submit-payment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
         body: JSON.stringify({ paymentReference: paymentReference.trim() }),
       });
 
