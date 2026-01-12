@@ -49,9 +49,23 @@ export async function POST(
       .eq('id', merchantUser.user_id)
       .single();
 
+    console.log('[USDC Transfer] Merchant wallet data:', {
+      merchantUserId: merchantUser.user_id,
+      walletData: merchantWallet,
+      hasAddress: !!merchantWallet?.embedded_wallet_address,
+      hasWalletId: !!merchantWallet?.privy_wallet_id,
+      walletId: merchantWallet?.privy_wallet_id,
+    });
+
     if (!merchantWallet?.embedded_wallet_address || !merchantWallet?.privy_wallet_id) {
+      console.error('[USDC Transfer] Missing wallet configuration:', {
+        hasAddress: !!merchantWallet?.embedded_wallet_address,
+        hasWalletId: !!merchantWallet?.privy_wallet_id,
+        merchantWallet,
+      });
       return NextResponse.json({ 
-        error: 'Merchant wallet not configured for server signing' 
+        error: 'Merchant wallet not configured for server signing',
+        detail: `Missing: ${!merchantWallet?.embedded_wallet_address ? 'wallet address' : ''} ${!merchantWallet?.privy_wallet_id ? 'privy wallet ID' : ''}`
       }, { status: 404 });
     }
 
