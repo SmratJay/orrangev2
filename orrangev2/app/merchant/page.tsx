@@ -115,7 +115,12 @@ function MerchantContent() {
 
   const acceptOrder = async (orderId: string) => {
     try {
-      const authToken = localStorage.getItem('privy:token')
+      const authToken = await getAccessToken()
+      if (!authToken) {
+        alert('Auth token missing. Please log in again.')
+        return
+      }
+
       const res = await fetch(`/api/orders/${orderId}/accept`, {
         method: 'POST',
         headers: {

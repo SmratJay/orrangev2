@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth"
+import { usePrivy, useWallets, useCreateWallet, getAccessToken } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -65,7 +65,10 @@ function DashboardContent() {
   const fetchOrders = async () => {
     setLoadingOrders(true)
     try {
-      const res = await fetch('/api/orders/my-orders')
+      const authToken = await getAccessToken()
+      const res = await fetch('/api/orders/my-orders', {
+        headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : undefined
+      })
       const data = await res.json()
       setOrders(data.orders || [])
     } catch (error) {
