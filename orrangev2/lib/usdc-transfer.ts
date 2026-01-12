@@ -124,9 +124,30 @@ export async function transferUSDCFromMerchantToUser(
       args: [userWalletAddress as `0x${string}`, amountInWei],
     });
 
+    console.log('[USDC Transfer] Encoded transaction data:', {
+      to: USDC_ADDRESS,
+      data: data.substring(0, 66) + '...',
+      chainId: sepolia.id,
+      amountInWei: amountInWei.toString(),
+    });
+
     // Use Privy REST API for wallet transaction signing
-    // https://docs.privy.io/guide/server/wallets/rpc
-    const response = await fetch(`https://auth.privy.io/api/v1/wallets/${merchantWalletId}/rpc`, {
+    // Privy API v1 endpoint for embedded wallet RPC
+    const apiUrl = `https://auth.privy.io/api/v1/wallets/${merchantWalletId}/rpc`;
+    console.log('[USDC Transfer] Calling Privy API:', apiUrl);
+
+    const requestBody = {
+      method: 'eth_sendTransaction',
+      params: [{
+        to: USDC_ADDRESS,
+        data: data,
+        chainId: `0x${sepolia.id.toString(16)}`, // Hex: 0xaa36a7
+      }],
+    };
+
+    console.log('[USDC Transfer] Request body:', JSON.stringify(requestBody, null, 2));
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -135,29 +156,28 @@ export async function transferUSDCFromMerchantToUser(
         'privy-authorization-key-id': authKeyId,
         'privy-authorization-private-key': authPrivateKey,
       },
-      body: JSON.stringify({
-        method: 'eth_sendTransaction',
-        params: [{
-          to: USDC_ADDRESS,
-          data: data,
-          chainId: `0x${sepolia.id.toString(16)}`, // Hex format
-        }],
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    console.log('[USDC Transfer] Privy API response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Privy API error: ${response.status} - ${error}`);
+      const errorText = await response.text();
+      console.error('[USDC Transfer] Privy API error response:', errorText);
+      throw new Error(`Privy API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    const txHash = result.result || result.data?.transaction_hash;
+    console.log('[USDC Transfer] Privy API response:', JSON.stringify(result, null, 2));
+
+    const txHash = result.result || result.data?.transaction_hash || result.data?.txHash;
 
     if (!txHash) {
+      console.error('[USDC Transfer] No transaction hash in response:', result);
       throw new Error('No transaction hash returned from Privy');
     }
 
-    console.log('[USDC Transfer] Success', {
+    console.log('[USDC Transfer] Transaction sent successfully', {
       txHash,
       explorerUrl: `https://sepolia.etherscan.io/tx/${txHash}`,
     });
