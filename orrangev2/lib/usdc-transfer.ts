@@ -135,6 +135,14 @@ export async function transferUSDCFromMerchantToUser(
     // Privy API v1 endpoint for embedded wallet RPC
     const apiUrl = `https://auth.privy.io/api/v1/wallets/${merchantWalletId}/rpc`;
     console.log('[USDC Transfer] Calling Privy API:', apiUrl);
+    console.log('[USDC Transfer] Auth config:', {
+      hasAppId: !!appId,
+      hasAppSecret: !!appSecret,
+      hasAuthKeyId: !!authKeyId,
+      hasAuthPrivateKey: !!authPrivateKey,
+      authKeyId,
+      merchantWalletId,
+    });
 
     const requestBody = {
       method: 'eth_sendTransaction',
@@ -147,28 +155,52 @@ export async function transferUSDCFromMerchantToUser(
 
     console.log('[USDC Transfer] Request body:', JSON.stringify(requestBody, null, 2));
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'privy-app-id': appId,
+      'Authorization': `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
+      'privy-authorization-key-id': authKeyId,
+      'privy-authorization-private-key': authPrivateKey,
+    };
+
+    console.log('[USDC Transfer] Request headers:', {
+      'Content-Type': headers['Content-Type'],
+      'privy-app-id': headers['privy-app-id'],
+      'Authorization': headers['Authorization'].substring(0, 20) + '...',
+      'privy-authorization-key-id': headers['privy-authorization-key-id'],
+      'privy-authorization-private-key': headers['privy-authorization-private-key'].substring(0, 30) + '...',
+    });
+
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'privy-app-id': appId,
-        'Authorization': `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
-        'privy-authorization-key-id': authKeyId,
-        'privy-authorization-private-key': authPrivateKey,
-      },
+      headers,
       body: JSON.stringify(requestBody),
     });
 
     console.log('[USDC Transfer] Privy API response status:', response.status);
+    console.log('[USDC Transfer] Response headers:', Object.fromEntries(response.headers.entries()));
+
+    const responseText = await response.text();
+    console.log('[USDC Transfer] Response body (raw):', responseText);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[USDC Transfer] Privy API error response:', errorText);
-      throw new Error(`Privy API error: ${response.status} - ${errorText}`);
+      console.error('[USDC Transfer] Privy API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText,
+      });
+      throw new Error(`Privy API error: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
-    const result = await response.json();
-    console.log('[USDC Transfer] Privy API response:', JSON.stringify(result, null, 2));
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[USDC Transfer] Failed to parse response:', parseError);
+      throw new Error(`Invalid JSON response from Privy: ${responseText.substring(0, 200)}`);
+    }
+
+    console.log('[USDC Transfer] Privy API response (parsed):', JSON.stringify(result, null, 2));
 
     const txHash = result.result || result.data?.transaction_hash || result.data?.txHash;
 
