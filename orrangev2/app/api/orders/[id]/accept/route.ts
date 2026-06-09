@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { parseRequestJson, formatZodError } from '@/lib/validation';
+import { acceptOrderSchema } from '@/lib/orders/validation';
+import { assertTransition } from '@/lib/orders/status';
 
 export const runtime = 'nodejs';
 
@@ -14,8 +17,13 @@ export async function POST(
 ) {
   try {
     const { privyId } = await requirePrivyUser(request);
-    const body = await request.json().catch(() => ({}));
-    const requestedUpi: string | undefined = body?.upiId?.toString().trim() || undefined;
+    const parsed = await parseRequestJson(request, acceptOrderSchema, {});
+    if (!parsed.ok) {
+      const details = formatZodError(parsed.error);
+      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
+    }
+
+    const requestedUpi = parsed.data.upiId || undefined;
     const supabase = await createClient();
     const { id: orderId } = await params;
 
@@ -59,8 +67,9 @@ export async function POST(
       return NextResponse.json({ error: 'This order is already assigned to another merchant' }, { status: 403 });
     }
 
-    if (order.status !== 'pending') {
-      return NextResponse.json({ error: 'Order not in pending state' }, { status: 400 });
+    const transition = assertTransition(order.status, 'accepted');
+    if (!transition.ok) {
+      return NextResponse.json({ error: transition.error }, { status: 400 });
     }
 
     // Use provided custom UPI or fall back to merchant default
@@ -88,9 +97,7 @@ export async function POST(
       chosenUpi
     });
 
-    return NextResponse.json({ 
-      success: true
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[orders/accept] Error:', error);
     console.error('[orders/accept] Error details:', JSON.stringify(error, null, 2));

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { PrivyClient } from '@privy-io/server-auth';
+import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { requireAdminUser } from '@/lib/requireAdmin';
 
 export const runtime = 'nodejs';
 
@@ -10,6 +12,9 @@ export const runtime = 'nodejs';
  */
 export async function POST(request: Request) {
   try {
+    const { privyId } = await requirePrivyUser(request);
+    await requireAdminUser(privyId);
+
     const supabase = await createClient();
 
     // Initialize Privy client

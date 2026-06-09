@@ -9,6 +9,7 @@ import { ArrowDownUp, Plus, History, LogOut, ArrowLeft, Copy, Wallet as WalletIc
 import Link from "next/link"
 import { AuthGuard } from "@/components/auth-guard"
 import { BuyForm } from "@/components/buy-form"
+import { SellForm } from "@/components/sell-form"
 import { WalletBalance } from "@/components/wallet-balance"
 
 function DashboardContent() {
@@ -16,7 +17,7 @@ function DashboardContent() {
   const { wallets, ready: walletsReady } = useWallets()
   const { createWallet } = useCreateWallet()
   const router = useRouter()
-  const [view, setView] = useState<'overview' | 'buy' | 'history'>('overview')
+  const [view, setView] = useState<'overview' | 'buy' | 'sell' | 'history'>('overview')
   const [isCheckingUserType, setIsCheckingUserType] = useState(true)
   const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null)
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -160,7 +161,7 @@ function DashboardContent() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Back Button */}
-        {(view === 'buy' || view === 'history') && (
+        {(view === 'buy' || view === 'sell' || view === 'history') && (
           <Button 
             variant="ghost" 
             className="mb-6 flex items-center gap-2" 
@@ -175,6 +176,10 @@ function DashboardContent() {
         {view === 'buy' ? (
           <div className="flex justify-center">
             <BuyForm />
+          </div>
+        ) : view === 'sell' ? (
+          <div className="flex justify-center">
+            <SellForm />
           </div>
         ) : view === 'history' ? (
           <Card>
@@ -207,7 +212,7 @@ function DashboardContent() {
                           <span className={`px-2 py-1 text-xs rounded ${
                             order.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                             order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            order.status === 'merchant_accepted' || order.status === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
+                            order.status === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
                             'bg-gray-500/20 text-gray-400'
                           }`}>
                             {order.status}
@@ -243,7 +248,7 @@ function DashboardContent() {
 
             {/* Wallet Address Display */}
             {embeddedWalletAddress ? (
-              <Card className="mb-8 border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
+              <Card className="mb-8 border-primary/20 bg-linear-to-r from-primary/5 to-primary/10">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <WalletIcon className="w-5 h-5" />
@@ -286,7 +291,7 @@ function DashboardContent() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="mb-8 border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-yellow-500/10">
+              <Card className="mb-8 border-yellow-500/20 bg-linear-to-r from-yellow-500/5 to-yellow-500/10">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <WalletIcon className="w-5 h-5" />
@@ -333,8 +338,8 @@ function DashboardContent() {
             {/* Quick Actions Grid */}
             <div className="grid md:grid-cols-3 gap-6 mb-12">
               {/* ON RAMP CARD */}
-              <Card 
-                className="bg-gradient-to-br from-primary/10 to-transparent border-primary/30 hover:border-primary/50 transition cursor-pointer"
+              <Card
+                className="bg-linear-to-br from-primary/10 to-transparent border-primary/30 hover:border-primary/50 transition cursor-pointer"
                 onClick={() => setView('buy')}
               >
                 <CardHeader>
@@ -348,14 +353,17 @@ function DashboardContent() {
               </Card>
 
               {/* OFF RAMP CARD */}
-              <Card className="bg-gradient-to-br from-accent/10 to-transparent border-accent/30 hover:border-accent/50 transition cursor-pointer opacity-50">
+              <Card 
+                className="bg-linear-to-br from-accent/10 to-transparent border-accent/30 hover:border-accent/50 transition cursor-pointer"
+                onClick={() => setView('sell')}
+              >
                 <CardHeader>
                   <ArrowDownUp className="w-8 h-8 text-accent mb-2" />
                   <CardTitle>Off-Ramp</CardTitle>
-                  <CardDescription>Coming Soon (USDC to INR)</CardDescription>
+                  <CardDescription>Sell USDC for INR</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button disabled className="w-full bg-accent hover:bg-accent/90">Locked</Button>
+                  <Button className="w-full bg-accent hover:bg-accent/90">Sell USDC</Button>
                 </CardContent>
               </Card>
 

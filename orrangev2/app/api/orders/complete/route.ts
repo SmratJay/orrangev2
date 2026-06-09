@@ -1,55 +1,82 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { requireAdminUser } from '@/lib/requireAdmin';
+import { parseRequestJson, formatZodError } from '@/lib/validation';
+import { completeOrderSchema } from '@/lib/orders/validation';
 
 export const runtime = 'nodejs';
 
 /**
  * POST /api/orders/complete
- * Merchant marks order as complete and records transaction hash
+ * Admin/internal manual completion (server-signed transfers are default)
  */
 export async function POST(request: Request) {
   try {
-    const { privyId } = await requirePrivyUser(request);
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+    const requestApiKey = request.headers.get('x-internal-api-key');
+
+    let authorized = false;
+
+    if (internalApiKey && requestApiKey && requestApiKey === internalApiKey) {
+      authorized = true;
+    }
+
+    if (!authorized) {
+      const { privyId } = await requirePrivyUser(request);
+      await requireAdminUser(privyId);
+      authorized = true;
+    }
+
+    if (!authorized) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const supabase = await createClient();
 
-    // Get request body
-    const { orderId, txHash, paymentReference } = await request.json();
-
-    if (!orderId) {
-      return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
+    const parsed = await parseRequestJson(request, completeOrderSchema);
+    if (!parsed.ok) {
+      const details = formatZodError(parsed.error);
+      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
     }
 
-    // Get merchant user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, user_type')
-      .eq('privy_user_id', privyId)
+    const { orderId, txHash, paymentReference } = parsed.data;
+
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id, status, tx_hash')
+      .eq('id', orderId)
       .single();
 
-    if (!user || user.user_type !== 'merchant') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Get merchant record
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
+    if (existingOrder.status === 'completed' && existingOrder.tx_hash) {
+      return NextResponse.json({
+        success: true,
+        order: existingOrder,
+        alreadyCompleted: true,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const updateData: Record<string, any> = {
+      status: 'completed',
+      tx_hash: txHash,
+      usdc_sent_at: now,
+      completed_at: now,
+    };
+
+    if (paymentReference) {
+      updateData.payment_reference = paymentReference;
+    }
 
     // Update order
     const { data: order, error } = await supabase
       .from('orders')
-      .update({
-        status: 'completed',
-        tx_hash: txHash,
-        payment_reference: paymentReference,
-        tx_confirmed: true,
-        completed_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', orderId)
-      .eq('merchant_id', merchant?.id)
       .select()
       .single();
 

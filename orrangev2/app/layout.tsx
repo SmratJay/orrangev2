@@ -5,6 +5,7 @@
   import "./globals.css"
   import { Providers } from "@/components/providers"
   import { UserSync } from '@/components/user-sync';
+import { ErrorBoundary } from '@/components/error-boundary';
   const _geist = Geist({ subsets: ["latin"] })
   const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
@@ -41,8 +42,8 @@
         <body className={`font-sans antialiased`}>
           <Providers>
             <UserSync />
-            
-            {children}</Providers>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </Providers>
           <Analytics />
         </body>
       </html>

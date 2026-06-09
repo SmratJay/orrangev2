@@ -4,12 +4,9 @@ import { usePrivy, useWallets, getAccessToken } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LogOut, CheckCircle, Clock, Send, Copy, Wallet as WalletIcon, RefreshCw } from "lucide-react"
+import { LogOut, CheckCircle, Clock, Copy, Wallet as WalletIcon } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
 import { useState, useEffect } from "react"
-import { SendUSDC } from "@/components/send-usdc"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { WalletBalance } from "@/components/wallet-balance"
 
 interface Order {
@@ -35,9 +32,6 @@ function MerchantContent() {
   const { wallets, ready: walletsReady } = useWallets()
   const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [paymentRef, setPaymentRef] = useState('')
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
   const [embeddedWalletAddress, setEmbeddedWalletAddress] = useState<string | null>(null)
   const [copiedAddress, setCopiedAddress] = useState(false)
@@ -108,8 +102,6 @@ function MerchantContent() {
       setOrders(data.orders || [])
     } catch (error) {
       console.error('[Merchant] Failed to fetch orders:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -180,12 +172,15 @@ function MerchantContent() {
   })
   
   // Pending orders: orders accepted by THIS merchant, awaiting payment confirmation
-  const pendingOrders = orders.filter(o => 
-    (o.status === 'accepted' || o.status === 'merchant_accepted') && 
-    o.merchant_id === merchantId
+  const pendingOrders = orders.filter(
+    (o) => o.status === 'accepted' && o.merchant_id === merchantId
   )
   
-  const readyToFulfill = orders.filter(o => o.status === 'payment_received' && o.merchant_id === merchantId)
+  const transfersInProgress = orders.filter(
+    o =>
+      (o.status === 'payment_confirmed' || o.status === 'usdc_transferred') &&
+      o.merchant_id === merchantId
+  )
   
   // My Orders: all orders assigned to this merchant (any status except pending with null merchant_id)
   const myOrders = orders.filter(o => o.merchant_id === merchantId)
@@ -195,7 +190,7 @@ function MerchantContent() {
     totalOrders: orders.length,
     ordersToFulfill: ordersToFulfill.length,
     pendingOrders: pendingOrders.length,
-    readyToFulfill: readyToFulfill.length,
+    transfersInProgress: transfersInProgress.length,
     myOrders: myOrders.length,
     orderStatuses: orders.map(o => ({ id: o.id.slice(0,8), status: o.status, merchant_id: o.merchant_id }))
   })
@@ -235,7 +230,7 @@ function MerchantContent() {
         </div>
 
         {/* Wallet Info */}
-        <Card className="border-border mb-8 bg-gradient-to-br from-primary/5 to-accent/5">
+        <Card className="border-border mb-8 bg-linear-to-br from-primary/5 to-accent/5">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2">
               <WalletIcon className="w-5 h-5 text-primary" />
@@ -314,11 +309,11 @@ function MerchantContent() {
 
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Ready to Send</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Transfers In Progress</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-500">{readyToFulfill.length}</div>
-              <p className="text-xs text-muted-foreground mt-1">Payment received</p>
+              <div className="text-3xl font-bold text-blue-500">{transfersInProgress.length}</div>
+              <p className="text-xs text-muted-foreground mt-1">Server-side USDC transfer</p>
             </CardContent>
           </Card>
 
@@ -433,47 +428,51 @@ function MerchantContent() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Ready to Fulfill - Send USDC</CardTitle>
-              <CardDescription>Payment confirmed. Send USDC to complete the order.</CardDescription>
+              <CardTitle>Transfers In Progress</CardTitle>
+              <CardDescription>
+                USDC transfers are handled server-side after payment confirmation. Open an order to retry if needed.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {readyToFulfill.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">No orders ready to fulfill</p>
+              {transfersInProgress.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">No transfers in progress</p>
               ) : (
                 <div className="space-y-4">
-                  {readyToFulfill.map((order) => {
-                    const recipientAddress = order.users?.smart_wallet_address || order.users?.embedded_wallet_address || order.user_wallet_address
-                    
-                    return (
-                      <Card key={order.id} className="border-green-500/30 bg-green-950/10">
-                        <CardContent className="pt-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
-                              <p className="font-semibold">{order.users?.email}</p>
+                  {transfersInProgress.map((order) => (
+                    <Card key={order.id} className="border-blue-500/30 bg-blue-950/10">
+                      <CardContent className="pt-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                            <p className="font-semibold">{order.users?.email}</p>
+                            {order.payment_reference && (
                               <p className="text-xs text-muted-foreground mt-1">Ref: {order.payment_reference}</p>
-                            </div>
-                            <Send className="w-5 h-5 text-green-500" />
+                            )}
                           </div>
-                          
-                          {recipientAddress ? (
-                            <SendUSDC
-                              recipientAddress={recipientAddress}
-                              amount={order.usdc_amount.toString()}
-                              orderId={order.id}
-                              onSuccess={() => fetchOrders()}
-                            />
-                          ) : (
-                            <div className="p-4 bg-red-950/20 border border-red-500/30 rounded-md">
-                              <p className="text-sm text-red-200">
-                                ⚠️ User wallet address not found. Ask user to login first.
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                          <Clock className="w-5 h-5 text-blue-500" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-zinc-900 rounded-md">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Amount (INR)</p>
+                            <p className="font-bold">₹{order.fiat_amount}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">USDC to Send</p>
+                            <p className="font-bold">{order.usdc_amount} USDC</p>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => router.push(`/merchant/order/${order.id}`)}
+                          className="w-full"
+                          variant="outline"
+                        >
+                          View Order Details →
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -492,10 +491,13 @@ function MerchantContent() {
                 <div className="space-y-4">
                   {myOrders.map((order) => {
                     const statusColors: { [key: string]: string } = {
-                      'merchant_accepted': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-                      'payment_received': 'bg-green-500/20 text-green-300 border-green-500/30',
+                      'accepted': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+                      'payment_sent': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+                      'payment_confirmed': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+                      'usdc_transferred': 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
                       'completed': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
                       'cancelled': 'bg-red-500/20 text-red-300 border-red-500/30',
+                      'expired': 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30',
                     }
                     const statusColor = statusColors[order.status] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'
                     

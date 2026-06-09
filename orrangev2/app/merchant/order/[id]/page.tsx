@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { encodeFunctionData, parseUnits } from 'viem';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, IndianRupee, Wallet } from 'lucide-react';
-
-type OrderStatus = 'pending' | 'accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
+import type { OrderStatus } from '@/lib/orders/status';
 
 interface OrderData {
   order: {
@@ -20,12 +20,16 @@ interface OrderData {
     status: OrderStatus;
     payment_reference?: string;
     tx_hash?: string;
+    usdc_tx_hash?: string;
     created_at: string;
     merchant_accepted_at?: string;
     payment_confirmed_at?: string;
     usdc_sent_at?: string;
+    usdc_received_at?: string;
+    fiat_sent_at?: string;
     completed_at?: string;
     custom_upi_id?: string;
+    user_upi_id?: string;
   };
   merchant: {
     upi_id: string;
@@ -37,10 +41,19 @@ interface OrderData {
   accessType: 'user' | 'merchant';
 }
 
+const USDC_CONTRACT = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+const ERC20_TRANSFER_ABI = [{
+  name: 'transfer',
+  type: 'function',
+  inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
+  outputs: [{ name: '', type: 'bool' }],
+}] as const;
+
 export default function MerchantOrderPage() {
   const params = useParams();
   const router = useRouter();
   const { ready: privyReady, authenticated } = usePrivy();
+  const { wallets } = useWallets();
   const orderId = params.id as string;
 
   const [data, setData] = useState<OrderData | null>(null);
@@ -124,13 +137,48 @@ export default function MerchantOrderPage() {
     }
   };
 
-  // Confirm payment received
+  // Confirm payment: send USDC client-side then mark order complete
   const handleConfirmPayment = async () => {
+    if (!data) return;
+    const userWalletAddress = data.user?.wallet_address;
+    if (!userWalletAddress) {
+      alert('Customer wallet address not found');
+      return;
+    }
+
+    const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
+    if (!embeddedWallet) {
+      alert('Your embedded wallet is not ready. Please refresh and try again.');
+      return;
+    }
+
     setActionLoading('confirm');
     try {
+      // Switch to Sepolia
+      await embeddedWallet.switchChain(11155111);
+      const provider = await embeddedWallet.getEthereumProvider();
+
+      const usdcAmount = parseUnits(String(data.order.usdc_amount), 6);
+      const calldata = encodeFunctionData({
+        abi: ERC20_TRANSFER_ABI,
+        functionName: 'transfer',
+        args: [userWalletAddress as `0x${string}`, usdcAmount],
+      });
+
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: embeddedWallet.address,
+          to: USDC_CONTRACT,
+          data: calldata,
+        }],
+      });
+
+      // Record completion server-side
       const response = await fetch(`/api/orders/${orderId}/confirm-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txHash }),
       });
 
       if (!response.ok) {
@@ -142,30 +190,6 @@ export default function MerchantOrderPage() {
     } catch (err) {
       console.error('[MerchantOrderPage] Confirm error:', err);
       alert(err instanceof Error ? err.message : 'Failed to confirm payment');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Retry USDC transfer for stuck orders
-  const handleRetryTransfer = async () => {
-    setActionLoading('retry');
-    try {
-      const response = await fetch(`/api/orders/${orderId}/retry-transfer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to retry transfer');
-      }
-
-      await fetchOrder();
-      alert('Transfer retry successful!');
-    } catch (err) {
-      console.error('[MerchantOrderPage] Retry error:', err);
-      alert(err instanceof Error ? err.message : 'Failed to retry transfer');
     } finally {
       setActionLoading(null);
     }
@@ -233,22 +257,24 @@ export default function MerchantOrderPage() {
           <CardHeader>
             <CardTitle>Order Details</CardTitle>
             <CardDescription>
-              Customer wants to buy {order.usdc_amount} USDC
+              {order.type === 'offramp' 
+                ? `Customer wants to sell ${order.usdc_amount} USDC`
+                : `Customer wants to buy ${order.usdc_amount} USDC`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <div className={`p-4 rounded-lg ${order.type === 'offramp' ? 'bg-muted' : 'bg-green-500/10 border border-green-500/20'}`}>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <IndianRupee className="w-4 h-4" /> You Receive
+                  <IndianRupee className="w-4 h-4" /> {order.type === 'offramp' ? 'You Send' : 'You Receive'}
                 </p>
-                <p className="text-2xl font-bold text-green-500">₹{order.fiat_amount}</p>
+                <p className={`text-2xl font-bold ${order.type === 'offramp' ? '' : 'text-green-500'}`}>₹{order.fiat_amount}</p>
               </div>
-              <div className="p-4 bg-muted rounded-lg">
+              <div className={`p-4 rounded-lg ${order.type === 'offramp' ? 'bg-green-500/10 border border-green-500/20' : 'bg-muted'}`}>
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Wallet className="w-4 h-4" /> You Send
+                  <Wallet className="w-4 h-4" /> {order.type === 'offramp' ? 'You Receive' : 'You Send'}
                 </p>
-                <p className="text-2xl font-bold">{order.usdc_amount} USDC</p>
+                <p className={`text-2xl font-bold ${order.type === 'offramp' ? 'text-green-500' : ''}`}>{order.usdc_amount} USDC</p>
               </div>
             </div>
 
@@ -275,23 +301,40 @@ export default function MerchantOrderPage() {
               order.status === 'pending' ? 'bg-yellow-500/10 border border-yellow-500/20' :
               order.status === 'accepted' ? 'bg-blue-500/10 border border-blue-500/20' :
               order.status === 'payment_sent' ? 'bg-orange-500/10 border border-orange-500/20' :
+              order.status === 'usdc_sent' ? 'bg-orange-500/10 border border-orange-500/20' :
+              order.status === 'usdc_received' ? 'bg-blue-500/10 border border-blue-500/20' :
+              order.status === 'fiat_sent' ? 'bg-blue-500/10 border border-blue-500/20' :
               order.status === 'completed' ? 'bg-green-500/10 border border-green-500/20' :
               'bg-muted'
             }`}>
               {order.status === 'pending' && <Clock className="w-5 h-5 text-yellow-500" />}
               {order.status === 'accepted' && <Clock className="w-5 h-5 text-blue-500" />}
               {order.status === 'payment_sent' && <AlertCircle className="w-5 h-5 text-orange-500" />}
-              {(order.status === 'payment_confirmed' || order.status === 'usdc_transferred') && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
+              {order.status === 'usdc_sent' && <AlertCircle className="w-5 h-5 text-orange-500" />}
+              {(order.status === 'payment_confirmed' || order.status === 'usdc_transferred' || order.status === 'usdc_received' || order.status === 'fiat_sent') && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
               {order.status === 'completed' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
               
               <div>
                 <p className="font-medium">
-                  {order.status === 'pending' && 'Waiting for you to accept'}
-                  {order.status === 'accepted' && 'Waiting for customer payment'}
-                  {order.status === 'payment_sent' && 'Payment submitted - verify and confirm'}
-                  {order.status === 'payment_confirmed' && 'Processing USDC transfer...'}
-                  {order.status === 'usdc_transferred' && 'Finalizing order...'}
-                  {order.status === 'completed' && 'Order completed!'}
+                  {order.type === 'onramp' ? (
+                    <>
+                      {order.status === 'pending' && 'Waiting for you to accept'}
+                      {order.status === 'accepted' && 'Waiting for customer payment'}
+                      {order.status === 'payment_sent' && 'Payment submitted - verify and confirm'}
+                      {order.status === 'payment_confirmed' && 'Processing USDC transfer...'}
+                      {order.status === 'usdc_transferred' && 'Finalizing order...'}
+                      {order.status === 'completed' && 'Order completed!'}
+                    </>
+                  ) : (
+                    <>
+                      {order.status === 'pending' && 'Waiting for you to accept'}
+                      {order.status === 'accepted' && 'Waiting for customer to send USDC'}
+                      {order.status === 'usdc_sent' && 'USDC sent - verify receipt'}
+                      {order.status === 'usdc_received' && 'USDC received - send INR'}
+                      {order.status === 'fiat_sent' && 'Waiting for customer confirmation'}
+                      {order.status === 'completed' && 'Order completed!'}
+                    </>
+                  )}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Created: {new Date(order.created_at).toLocaleString()}
@@ -309,10 +352,20 @@ export default function MerchantOrderPage() {
             <CardHeader>
               <CardTitle className="text-primary">Accept This Order?</CardTitle>
               <CardDescription>
-                You'll receive ₹{order.fiat_amount} via UPI and send {order.usdc_amount} USDC
+                {order.type === 'offramp' 
+                  ? `You'll receive ${order.usdc_amount} USDC and send ₹${order.fiat_amount} via UPI`
+                  : `You'll receive ₹${order.fiat_amount} via UPI and send ${order.usdc_amount} USDC`}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {order.type === 'offramp' && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                  <p className="text-sm text-amber-800">
+                    <strong>Note:</strong> This is an off-ramp order. Customer will send USDC first, 
+                    then you send INR to their UPI ID after verifying USDC receipt.
+                  </p>
+                </div>
+              )}
               <Button
                 className="w-full"
                 size="lg"
@@ -446,7 +499,7 @@ export default function MerchantOrderPage() {
               <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <p className="text-sm text-yellow-600 dark:text-yellow-400">
                   ⚠️ Only confirm if you've received ₹{order.fiat_amount} in your UPI account.
-                  USDC will be automatically sent to the customer after confirmation.
+                  Your wallet will prompt you to sign a USDC transfer to the customer.
                 </p>
               </div>
 
@@ -469,45 +522,6 @@ export default function MerchantOrderPage() {
           </Card>
         )}
 
-        {/* Status: Processing USDC */}
-        {(order.status === 'payment_confirmed' || order.status === 'usdc_transferred') && (
-          <Card className="border-blue-500">
-            <CardHeader>
-              <CardTitle className="text-blue-500 flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Processing USDC Transfer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                Your payment confirmation has been received. USDC is being transferred to the customer's wallet.
-                This usually takes a few seconds.
-              </p>
-              
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                  ⚠️ If the transfer is stuck for more than 30 seconds, you can retry it manually.
-                </p>
-              </div>
-
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleRetryTransfer}
-                disabled={actionLoading === 'retry'}
-              >
-                {actionLoading === 'retry' ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Retrying Transfer...
-                  </>
-                ) : (
-                  'Retry USDC Transfer'
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Status: Completed */}
         {isCompleted && (
@@ -545,6 +559,197 @@ export default function MerchantOrderPage() {
               <Button className="w-full" onClick={() => router.push('/merchant')}>
                 Back to Dashboard
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status Accepted - Waiting for USDC */}
+        {order.type === 'offramp' && order.status === 'accepted' && (
+          <Card className="border-blue-500">
+            <CardHeader>
+              <CardTitle className="text-blue-500">Waiting for USDC</CardTitle>
+              <CardDescription>
+                Customer needs to send {order.usdc_amount} USDC to your wallet
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  Share your wallet address with the customer if needed. 
+                  You'll verify the USDC transfer on-chain before sending INR.
+                </p>
+              </div>
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Customer UPI (for INR payout)</p>
+                <p className="font-mono font-medium">{order.user_upi_id || 'Not provided yet'}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status USDC Sent - Verify USDC */}
+        {order.type === 'offramp' && order.status === 'usdc_sent' && (
+          <Card className="border-orange-500">
+            <CardHeader>
+              <CardTitle className="text-orange-500">Verify USDC Transfer</CardTitle>
+              <CardDescription>
+                Check if you received {order.usdc_amount} USDC on-chain
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.usdc_tx_hash && (
+                <div>
+                  <Label>Transaction Hash</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                      {order.usdc_tx_hash}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.usdc_tx_hash}`, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  ⚠️ Verify on Etherscan that you received the USDC before confirming.
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={async () => {
+                  setActionLoading('verify');
+                  try {
+                    const response = await fetch(`/api/orders/${orderId}/verify-usdc`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                    });
+                    if (!response.ok) {
+                      const err = await response.json();
+                      throw new Error(err.error || 'Failed to verify');
+                    }
+                    await fetchOrder();
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : 'Failed to verify');
+                  } finally {
+                    setActionLoading(null);
+                  }
+                }}
+                disabled={actionLoading === 'verify'}
+              >
+                {actionLoading === 'verify' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'I\'ve Received USDC - Verify'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status USDC Received - Send INR */}
+        {order.type === 'offramp' && order.status === 'usdc_received' && (
+          <Card className="border-primary">
+            <CardHeader>
+              <CardTitle className="text-primary">Send INR</CardTitle>
+              <CardDescription>
+                Send ₹{order.fiat_amount} to customer's UPI ID
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800">
+                  ✅ USDC verified! Now send the INR to complete the order.
+                </p>
+              </div>
+              
+              <div>
+                <Label>Customer UPI ID</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 p-3 bg-muted rounded-lg font-mono font-medium">
+                    {order.user_upi_id}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (order.user_upi_id) {
+                        navigator.clipboard.writeText(order.user_upi_id);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }
+                    }}
+                  >
+                    {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Amount to send:</strong> ₹{order.fiat_amount}
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={async () => {
+                  setActionLoading('sendFiat');
+                  try {
+                    const response = await fetch(`/api/orders/${orderId}/send-fiat`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({}),
+                    });
+                    if (!response.ok) {
+                      const err = await response.json();
+                      throw new Error(err.error || 'Failed to mark as sent');
+                    }
+                    await fetchOrder();
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : 'Failed to mark as sent');
+                  } finally {
+                    setActionLoading(null);
+                  }
+                }}
+                disabled={actionLoading === 'sendFiat'}
+              >
+                {actionLoading === 'sendFiat' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Marking...
+                  </>
+                ) : (
+                  `I've Sent ₹${order.fiat_amount} - Confirm`
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status Fiat Sent - Waiting for confirmation */}
+        {order.type === 'offramp' && order.status === 'fiat_sent' && (
+          <Card className="border-blue-500">
+            <CardHeader>
+              <CardTitle className="text-blue-500 flex items-center gap-2">
+                <Clock className="w-5 h-5 animate-spin" />
+                Waiting for Customer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                You've marked INR as sent. Waiting for customer to confirm receipt.
+                UPI Reference: <code className="bg-muted px-1 rounded">{order.payment_reference || 'N/A'}</code>
+              </p>
             </CardContent>
           </Card>
         )}

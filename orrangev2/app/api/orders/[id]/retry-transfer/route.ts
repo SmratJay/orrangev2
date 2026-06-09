@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { assertTransition } from '@/lib/orders/status';
 
 export const runtime = 'nodejs';
 
@@ -55,11 +56,11 @@ export async function POST(
       return NextResponse.json({ error: 'Not your order' }, { status: 403 });
     }
 
-    // Only allow retry for payment_confirmed status
-    if (order.status !== 'payment_confirmed') {
-      return NextResponse.json({ 
-        error: `Cannot retry transfer. Order status is ${order.status}`,
-        detail: 'Only orders in payment_confirmed status can be retried'
+    const transition = assertTransition(order.status, 'usdc_transferred');
+    if (!transition.ok) {
+      return NextResponse.json({
+        error: transition.error,
+        detail: 'Only orders in payment_confirmed status can be retried',
       }, { status: 400 });
     }
 
@@ -69,7 +70,12 @@ export async function POST(
     const baseUrl = request.url.split('/api')[0];
     const transferResponse = await fetch(`${baseUrl}/api/orders/${orderId}/transfer-usdc`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INTERNAL_API_KEY
+          ? { 'x-internal-api-key': process.env.INTERNAL_API_KEY }
+          : {}),
+      },
     });
 
     const transferResult = await transferResponse.json();

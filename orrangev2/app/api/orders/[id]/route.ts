@@ -39,7 +39,8 @@ export async function GET(
           upi_id,
           user_id,
           users:user_id (
-            email
+            email,
+            embedded_wallet_address
           )
         ),
         users:user_id (
@@ -99,6 +100,7 @@ export async function GET(
       },
       merchant: order.merchants ? {
         upi_id: order.custom_upi_id || order.merchants.upi_id,
+        wallet_address: (order.merchants.users as { email: string; embedded_wallet_address: string } | null)?.embedded_wallet_address ?? null,
       } : null,
       user: order.users ? {
         email: order.users.email,

@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { parseRequestJson, formatZodError } from '@/lib/validation';
+import { submitPaymentSchema } from '@/lib/orders/validation';
+import { assertTransition } from '@/lib/orders/status';
 
 export const runtime = 'nodejs';
 
@@ -14,13 +17,15 @@ export async function POST(
 ) {
   try {
     const { privyId } = await requirePrivyUser(request);
+    const parsed = await parseRequestJson(request, submitPaymentSchema);
+    if (!parsed.ok) {
+      const details = formatZodError(parsed.error);
+      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
+    }
+
     const supabase = await createClient();
     const { id: orderId } = await params;
-    const { paymentReference } = await request.json();
-
-    if (!paymentReference) {
-      return NextResponse.json({ error: 'Payment reference required' }, { status: 400 });
-    }
+    const { paymentReference } = parsed.data;
 
     // Get current user
     const { data: user } = await supabase
@@ -48,8 +53,9 @@ export async function POST(
       return NextResponse.json({ error: 'Not your order' }, { status: 403 });
     }
 
-    if (order.status !== 'accepted') {
-      return NextResponse.json({ error: 'Order not in correct state' }, { status: 400 });
+    const transition = assertTransition(order.status, 'payment_sent');
+    if (!transition.ok) {
+      return NextResponse.json({ error: transition.error }, { status: 400 });
     }
 
     // Update order with payment reference

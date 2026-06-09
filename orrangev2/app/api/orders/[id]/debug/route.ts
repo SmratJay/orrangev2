@@ -2,6 +2,7 @@ import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
 import { getUSDCBalance } from '@/lib/usdc-transfer';
+import { requireAdminUser } from '@/lib/requireAdmin';
 
 export const runtime = 'nodejs';
 
@@ -14,9 +15,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePrivyUser(request);
+    const { privyId } = await requirePrivyUser(request);
     const supabase = await createClient();
     const { id: orderId } = await params;
+
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('id, user_type')
+      .eq('privy_user_id', privyId)
+      .single();
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     // Get order with all related data
     const { data: order } = await supabase
@@ -27,6 +38,33 @@ export async function GET(
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    let hasAccess = order.user_id === currentUser.id;
+
+    if (!hasAccess && currentUser.user_type === 'merchant') {
+      const { data: merchantRecord } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (merchantRecord && order.merchant_id === merchantRecord.id) {
+        hasAccess = true;
+      }
+    }
+
+    if (!hasAccess && currentUser.user_type === 'admin') {
+      try {
+        await requireAdminUser(privyId);
+        hasAccess = true;
+      } catch {
+        hasAccess = false;
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
     // Get merchant info

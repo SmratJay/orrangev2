@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { makeMerchant } from '@/lib/make-merchant';
+import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { requireAdminUser } from '@/lib/requireAdmin';
 
 export const runtime = 'nodejs';
 
@@ -10,6 +12,9 @@ export const runtime = 'nodejs';
  */
 export async function POST(request: Request) {
   try {
+    const { privyId } = await requirePrivyUser(request);
+    await requireAdminUser(privyId);
+
     const { privyUserId, upiId, inventoryBalance } = await request.json();
 
     if (!privyUserId) {

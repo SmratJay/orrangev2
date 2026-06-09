@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
+import { parseRequestJson, formatZodError } from '@/lib/validation';
+import { createOrderSchema } from '@/lib/orders/validation';
 
 export const runtime = 'nodejs';
 
@@ -13,12 +15,13 @@ export async function POST(request: Request) {
     const { privyId } = await requirePrivyUser(request);
     const supabase = await createClient();
 
-    // Get request body
-    const { type, fiatAmount, usdcAmount, userWalletAddress } = await request.json();
-
-    if (!type || !fiatAmount || !usdcAmount) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const parsed = await parseRequestJson(request, createOrderSchema);
+    if (!parsed.ok) {
+      const details = formatZodError(parsed.error);
+      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
     }
+
+    const { type, fiatAmount, usdcAmount, userWalletAddress } = parsed.data;
 
     // Get user from database
     const { data: user } = await supabase
@@ -37,10 +40,10 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         merchant_id: null, // No merchant assigned yet
-        type: type.toLowerCase(),
+        type,
         fiat_amount: fiatAmount,
         usdc_amount: usdcAmount,
-        status: 'pending', // Will change to 'accepted'/'merchant_accepted' when merchant accepts
+        status: 'pending', // Will change to 'accepted' when merchant accepts
         user_wallet_address: userWalletAddress || user.embedded_wallet_address,
       })
       .select()

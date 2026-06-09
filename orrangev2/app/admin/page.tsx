@@ -1,6 +1,8 @@
 "use client"
 
 import { usePrivy } from "@privy-io/react-auth"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,6 +11,44 @@ import { AuthGuard } from "@/components/auth-guard"
 
 function AdminContent() {
   const { user, logout } = usePrivy()
+  const router = useRouter()
+  const [checkingAccess, setCheckingAccess] = useState(true)
+
+  useEffect(() => {
+    const checkAdminAccess = async () => {
+      try {
+        const response = await fetch('/api/users/me')
+        if (!response.ok) {
+          router.push('/dashboard')
+          return
+        }
+
+        const userData = await response.json()
+        if (userData.user_type !== 'admin') {
+          router.push('/dashboard')
+          return
+        }
+      } catch {
+        router.push('/dashboard')
+        return
+      } finally {
+        setCheckingAccess(false)
+      }
+    }
+
+    checkAdminAccess()
+  }, [router])
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verifying admin access...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">

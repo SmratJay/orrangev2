@@ -2,18 +2,26 @@
 
 Add these to Vercel: Settings > Environment Variables > Production
 
-**IMPORTANT**: Remove the quotes when pasting into Vercel!
+IMPORTANT:
+- Never commit real secrets to git.
+- Rotate any previously exposed values before continuing.
+- Paste raw values without wrapping quotes.
 
 ## Variables to Add:
 
 ### 1. PRIVY_AUTHORIZATION_KEY_ID
 ```
-cbqmrr6r5iit4i0nfpou61v8
+<your_privy_authorization_key_id>
 ```
 
 ### 2. PRIVY_AUTHORIZATION_PRIVATE_KEY
 ```
-wallet-auth:MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgTUQK85NBaUA9HZQx54jrWISmkaceexCc8SwPJCVuWwWhRANCAATIqGpA8kaVKTbaElVhUELegOhW+ZZessh57wdXpIfehpxXqvSPm/gNJwz5KiJZSSHAaSId+SreBCiCpowAiL0r
+wallet-auth:<your_privy_authorization_private_key>
+```
+
+### 3. INTERNAL_API_KEY
+```
+<a_long_random_internal_api_key>
 ```
 
 ## How to Add:
@@ -25,8 +33,9 @@ wallet-auth:MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgTUQK85NBaUA9HZQx54jr
 5. Environment: Check "Production"
 6. Click "Save"
 7. Repeat for the PRIVATE_KEY
+8. Repeat for INTERNAL_API_KEY
 
 ## Note:
-- Don't include the backticks or quotes
-- Just paste the raw value
-- If it still fails, try adding them to "Preview" and "Development" environments too
+- Do not include backticks or quotes in the value field.
+- Do not store production secrets in markdown files.
+- Add these vars to Preview and Development as needed.

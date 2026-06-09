@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePrivy, getAccessToken } from '@privy-io/react-auth';
+import { usePrivy, useWallets, getAccessToken } from '@privy-io/react-auth';
+import { encodeFunctionData, parseUnits } from 'viem';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink } from 'lucide-react';
-
-type OrderStatus = 'pending' | 'accepted' | 'payment_sent' | 'payment_confirmed' | 'usdc_transferred' | 'completed' | 'cancelled' | 'expired';
+import type { OrderStatus } from '@/lib/orders/status';
 
 interface OrderData {
   order: {
@@ -20,15 +20,21 @@ interface OrderData {
     status: OrderStatus;
     payment_reference?: string;
     tx_hash?: string;
+    usdc_tx_hash?: string;
     created_at: string;
     merchant_accepted_at?: string;
     payment_confirmed_at?: string;
     usdc_sent_at?: string;
+    usdc_received_at?: string;
+    fiat_sent_at?: string;
+    fiat_confirmed_at?: string;
     completed_at?: string;
     custom_upi_id?: string;
+    user_upi_id?: string;
   };
   merchant: {
     upi_id: string;
+    wallet_address: string | null;
   } | null;
   user: {
     email: string;
@@ -37,18 +43,37 @@ interface OrderData {
   accessType: 'user' | 'merchant';
 }
 
-const STATUS_STEPS: { status: OrderStatus; label: string; description: string }[] = [
+const ONRAMP_STEPS: { status: OrderStatus; label: string; description: string }[] = [
   { status: 'pending', label: 'Order Created', description: 'Waiting for merchant to accept' },
   { status: 'accepted', label: 'Merchant Accepted', description: 'Pay via UPI, then confirm' },
   { status: 'payment_sent', label: 'Payment Submitted', description: 'Merchant verifying payment' },
   { status: 'payment_confirmed', label: 'Payment Confirmed', description: 'Transferring USDC...' },
+  { status: 'usdc_transferred', label: 'Transfer Broadcasted', description: 'Transaction submitted on-chain' },
   { status: 'completed', label: 'Completed', description: 'USDC transferred to your wallet!' },
 ];
+
+const OFFRAMP_STEPS: { status: OrderStatus; label: string; description: string }[] = [
+  { status: 'pending', label: 'Order Created', description: 'Waiting for merchant to accept' },
+  { status: 'accepted', label: 'Merchant Accepted', description: 'Send USDC to merchant' },
+  { status: 'usdc_sent', label: 'USDC Sent', description: 'Waiting for merchant to verify' },
+  { status: 'usdc_received', label: 'USDC Verified', description: 'Merchant will send INR' },
+  { status: 'fiat_sent', label: 'INR Sent', description: 'Confirm receipt to complete' },
+  { status: 'completed', label: 'Completed', description: 'Order completed successfully!' },
+];
+
+const USDC_CONTRACT = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+const ERC20_TRANSFER_ABI = [{
+  name: 'transfer',
+  type: 'function',
+  inputs: [{ name: 'to', type: 'address' }, { name: 'value', type: 'uint256' }],
+  outputs: [{ name: '', type: 'bool' }],
+}] as const;
 
 export default function UserOrderPage() {
   const params = useParams();
   const router = useRouter();
   const { ready: privyReady, authenticated } = usePrivy();
+  const { wallets } = useWallets();
   const orderId = params.id as string;
 
   const [data, setData] = useState<OrderData | null>(null);
@@ -99,7 +124,7 @@ export default function UserOrderPage() {
 
   // Poll for updates (every 2 seconds for faster status updates)
   useEffect(() => {
-    if (!data || data.order.status === 'completed' || data.order.status === 'cancelled') {
+    if (!data || data.order.status === 'completed' || data.order.status === 'cancelled' || data.order.status === 'expired') {
       return;
     }
 
@@ -151,10 +176,39 @@ export default function UserOrderPage() {
     }
   };
 
+  // Confirm INR received (off-ramp)
+  const handleConfirmFiat = async (confirmed: boolean) => {
+    setActionLoading(true);
+    try {
+      const authToken = await getAccessToken();
+      const response = await fetch(`/api/orders/${orderId}/confirm-fiat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : ''
+        },
+        body: JSON.stringify({ confirmed }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to confirm');
+      }
+
+      await fetchOrder();
+    } catch (err) {
+      console.error('[OrderPage] Confirm fiat error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to confirm');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Get current step index
   const getCurrentStep = () => {
     if (!data) return 0;
-    const idx = STATUS_STEPS.findIndex(s => s.status === data.order.status);
+    const steps = data.order.type === 'offramp' ? OFFRAMP_STEPS : ONRAMP_STEPS;
+    const idx = steps.findIndex((s: { status: OrderStatus }) => s.status === data.order.status);
     return idx >= 0 ? idx : 0;
   };
 
@@ -192,6 +246,8 @@ export default function UserOrderPage() {
   const { order, merchant } = data;
   const currentStep = getCurrentStep();
   const isCompleted = order.status === 'completed';
+  const isCancelled = order.status === 'cancelled';
+  const isExpired = order.status === 'expired';
 
   const merchantUpi = order.custom_upi_id || merchant?.upi_id;
 
@@ -213,18 +269,26 @@ export default function UserOrderPage() {
           <CardHeader>
             <CardTitle>Order Summary</CardTitle>
             <CardDescription>
-              Buy {order.usdc_amount} USDC for ₹{order.fiat_amount}
+              {order.type === 'offramp' 
+                ? `Sell ${order.usdc_amount} USDC for ₹${order.fiat_amount}`
+                : `Buy ${order.usdc_amount} USDC for ₹${order.fiat_amount}`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">You Pay</p>
-                <p className="text-2xl font-bold">₹{order.fiat_amount}</p>
+                <p className="text-sm text-muted-foreground">
+                  {order.type === 'offramp' ? 'You Send' : 'You Pay'}
+                </p>
+                <p className="text-2xl font-bold">
+                  {order.type === 'offramp' ? `${order.usdc_amount} USDC` : `₹${order.fiat_amount}`}
+                </p>
               </div>
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">You Receive</p>
-                <p className="text-2xl font-bold text-green-500">{order.usdc_amount} USDC</p>
+                <p className="text-2xl font-bold text-green-500">
+                  {order.type === 'offramp' ? `₹${order.fiat_amount}` : `${order.usdc_amount} USDC`}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -237,7 +301,7 @@ export default function UserOrderPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {STATUS_STEPS.map((step, index) => {
+              {(order.type === 'offramp' ? OFFRAMP_STEPS : ONRAMP_STEPS).map((step: { status: OrderStatus; label: string; description: string }, index: number) => {
                 const isActive = index === currentStep;
                 const isComplete = index < currentStep || isCompleted;
                 const isPending = index > currentStep;
@@ -245,7 +309,7 @@ export default function UserOrderPage() {
                 return (
                   <div key={step.status} className="flex items-start gap-4">
                     <div className={`
-                      w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
+                      w-8 h-8 rounded-full flex items-center justify-center shrink-0
                       ${isComplete ? 'bg-green-500 text-white' : ''}
                       ${isActive ? 'bg-primary text-white animate-pulse' : ''}
                       ${isPending ? 'bg-muted text-muted-foreground' : ''}
@@ -273,8 +337,8 @@ export default function UserOrderPage() {
 
         {/* Action Area - depends on status */}
         
-        {/* Status: Merchant Accepted - Show UPI payment form */}
-        {order.status === 'accepted' && merchant && (
+        {/* Status: Merchant Accepted - Show UPI payment form (onramp only) */}
+        {order.type === 'onramp' && order.status === 'accepted' && merchant && (
           <Card className="border-primary">
             <CardHeader>
               <CardTitle className="text-primary">Pay via UPI</CardTitle>
@@ -375,7 +439,9 @@ export default function UserOrderPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                {order.usdc_amount} USDC has been transferred to your wallet.
+                {order.type === 'offramp'
+                  ? `₹${order.fiat_amount} has been sent to your UPI account.`
+                  : `${order.usdc_amount} USDC has been transferred to your wallet.`}
               </p>
               
               {order.tx_hash && (
@@ -403,7 +469,182 @@ export default function UserOrderPage() {
           </Card>
         )}
 
-        {/* Status: Pending - Waiting for merchant to accept */}
+        {/* OFF-RAMP: Status Accepted - Send USDC client-side */}
+        {order.type === 'offramp' && order.status === 'accepted' && (
+          <Card className="border-primary">
+            <CardHeader>
+              <CardTitle className="text-primary">Send USDC</CardTitle>
+              <CardDescription>
+                Send {order.usdc_amount} USDC to the merchant
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Important:</strong> You need to send USDC from your wallet first.
+                  The merchant will send ₹{order.fiat_amount} after receiving your USDC.
+                </p>
+              </div>
+
+              <div>
+                <Label>Your UPI ID for receiving INR</Label>
+                <div className="p-3 bg-muted rounded-lg font-mono mt-1">
+                  {order.user_upi_id || 'Not set'}
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={actionLoading}
+                onClick={async () => {
+                  const merchantWalletAddress = merchant?.wallet_address;
+                  if (!merchantWalletAddress) {
+                    alert('Merchant wallet address not available. Please try again.');
+                    return;
+                  }
+                  const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
+                  if (!embeddedWallet) {
+                    alert('Your embedded wallet is not ready. Please refresh and try again.');
+                    return;
+                  }
+                  setActionLoading(true);
+                  try {
+                    await embeddedWallet.switchChain(11155111);
+                    const provider = await embeddedWallet.getEthereumProvider();
+                    const usdcAmount = parseUnits(String(order.usdc_amount), 6);
+                    const calldata = encodeFunctionData({
+                      abi: ERC20_TRANSFER_ABI,
+                      functionName: 'transfer',
+                      args: [merchantWalletAddress as `0x${string}`, usdcAmount],
+                    });
+                    const txHash = await provider.request({
+                      method: 'eth_sendTransaction',
+                      params: [{ from: embeddedWallet.address, to: USDC_CONTRACT, data: calldata }],
+                    });
+                    const authToken = await getAccessToken();
+                    const res = await fetch(`/api/orders/${orderId}/submit-usdc`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authToken ? `Bearer ${authToken}` : '',
+                      },
+                      body: JSON.stringify({ txHash }),
+                    });
+                    if (!res.ok) {
+                      const err = await res.json();
+                      throw new Error(err.error || 'Failed to submit USDC transfer');
+                    }
+                    await fetchOrder();
+                  } catch (err) {
+                    console.error('[OrderPage] Send USDC error:', err);
+                    alert(err instanceof Error ? err.message : 'Failed to send USDC');
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending USDC...
+                  </>
+                ) : (
+                  `Send ${order.usdc_amount} USDC to Merchant`
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status USDC Sent - Waiting for merchant verification */}
+        {order.type === 'offramp' && order.status === 'usdc_sent' && (
+          <Card className="border-yellow-500">
+            <CardHeader>
+              <CardTitle className="text-yellow-500 flex items-center gap-2">
+                <Clock className="w-5 h-5 animate-spin" />
+                Verifying USDC Transfer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Your USDC transfer is being verified on-chain. 
+                Transaction hash: <code className="text-xs bg-muted px-1 rounded">{order.usdc_tx_hash?.slice(0, 20)}...</code>
+              </p>
+              {order.usdc_tx_hash && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.usdc_tx_hash}`, '_blank')}
+                  className="w-full"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  View on Explorer
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status USDC Received - Waiting for INR */}
+        {order.type === 'offramp' && order.status === 'usdc_received' && (
+          <Card className="border-blue-500">
+            <CardHeader>
+              <CardTitle className="text-blue-500 flex items-center gap-2">
+                <Clock className="w-5 h-5 animate-pulse" />
+                Waiting for INR
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                USDC verified! The merchant is sending ₹{order.fiat_amount} to your UPI ID: <strong>{order.user_upi_id}</strong>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* OFF-RAMP: Status Fiat Sent - Confirm INR Received */}
+        {order.type === 'offramp' && order.status === 'fiat_sent' && (
+          <Card className="border-green-500">
+            <CardHeader>
+              <CardTitle className="text-green-500">Confirm INR Receipt</CardTitle>
+              <CardDescription>
+                Did you receive ₹{order.fiat_amount} in your bank account?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {order.payment_reference && (
+                <p className="text-sm text-muted-foreground">
+                  UPI Reference: <code className="bg-muted px-1 rounded">{order.payment_reference}</code>
+                </p>
+              )}
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 bg-green-500 hover:bg-green-600"
+                  onClick={() => handleConfirmFiat(true)}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                  )}
+                  Yes, Received
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => handleConfirmFiat(false)}
+                  disabled={actionLoading}
+                >
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  No, Dispute
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ON-RAMP: Status Pending - Waiting for merchant to accept */}
         {order.status === 'pending' && (
           <Card className="border-yellow-500">
             <CardHeader>
@@ -416,6 +657,27 @@ export default function UserOrderPage() {
               <p className="text-muted-foreground">
                 Your order is waiting for a merchant to accept. This usually takes less than a minute.
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {(isCancelled || isExpired) && (
+          <Card className="border-red-500 bg-red-500/10">
+            <CardHeader>
+              <CardTitle className="text-red-500 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                {isCancelled ? 'Order Cancelled' : 'Order Expired'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                {isCancelled
+                  ? 'This order was cancelled. You can create a new order from your dashboard.'
+                  : 'This order expired before completion. Please create a new order.'}
+              </p>
+              <Button className="w-full" onClick={() => router.push('/dashboard')}>
+                Back to Dashboard
+              </Button>
             </CardContent>
           </Card>
         )}

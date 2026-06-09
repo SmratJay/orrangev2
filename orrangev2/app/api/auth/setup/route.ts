@@ -11,9 +11,39 @@ export async function POST(request: Request) {
 
     // 2️⃣ Get request body
     const body = await request.json()
-    const { email, embedded_wallet_address, privy_wallet_id } = body
+    const { email, embedded_wallet_address, privy_wallet_id: clientWalletId, full_name } = body
 
-    console.log('[Setup] Syncing user:', { privyId, email, embedded_wallet_address, privy_wallet_id })
+    // If client didn't send privy_wallet_id, fetch it from Privy API using the embedded wallet address
+    let privy_wallet_id = clientWalletId || null;
+    if (!privy_wallet_id && embedded_wallet_address) {
+      try {
+        const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+        const appSecret = process.env.PRIVY_APP_SECRET;
+        if (appId && appSecret) {
+          const privyRes = await fetch(`https://auth.privy.io/api/v1/users/${privyId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'privy-app-id': appId,
+              'Authorization': `Basic ${Buffer.from(`${appId}:${appSecret}`).toString('base64')}`,
+            },
+          });
+          if (privyRes.ok) {
+            const privyUser = await privyRes.json();
+            const embeddedWallet = privyUser.linked_accounts?.find(
+              (a: any) => a.type === 'wallet' && a.wallet_client === 'privy'
+            );
+            if (embeddedWallet?.id) {
+              privy_wallet_id = embeddedWallet.id;
+              console.log('[Setup] Fetched privy_wallet_id from API:', privy_wallet_id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Setup] Failed to fetch privy_wallet_id from Privy API:', err);
+      }
+    }
+
+    console.log('[Setup] Syncing user:', { privyId, email, embedded_wallet_address, privy_wallet_id, full_name })
 
     // 3️⃣ Supabase = data authority
     const supabase = await createClient()
@@ -33,6 +63,7 @@ export async function POST(request: Request) {
       if (email) updateData.email = email
       if (embedded_wallet_address) updateData.embedded_wallet_address = embedded_wallet_address
       if (privy_wallet_id) updateData.privy_wallet_id = privy_wallet_id
+      if (full_name) updateData.full_name = full_name
       
       if (Object.keys(updateData).length > 0) {
         const { error: updateError } = await supabase
@@ -54,6 +85,7 @@ export async function POST(request: Request) {
         .insert({
           privy_user_id: privyId,
           email: email || null,
+          full_name: full_name || null,
           embedded_wallet_address: embedded_wallet_address || null,
           privy_wallet_id: privy_wallet_id || null,
           user_type: 'user', // New users default to 'user'
