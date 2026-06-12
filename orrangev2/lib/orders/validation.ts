@@ -30,7 +30,7 @@ export const createOrderSchema = z.object({
 });
 
 export const acceptOrderSchema = z.object({
-  upiId: upiIdSchema.optional(),
+  upiId: z.union([upiIdSchema, z.literal(''), z.undefined()]).optional(),
 });
 
 export const submitPaymentSchema = z.object({
