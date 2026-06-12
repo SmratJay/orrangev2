@@ -5,7 +5,6 @@ import { LiveStatsSection } from '@/components/landing/LiveStatsSection';
 import { SettlementArchitecture } from '@/components/landing/SettlementArchitecture';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import { SecurityArchitecture } from '@/components/landing/SecurityArchitecture';
-import FeaturesSection from '@/components/landing/FeaturesSection';
 import CallToActionSection from '@/components/landing/CallToActionSection';
 import LandingFooter from '@/components/landing/LandingFooter';
 
@@ -23,7 +22,6 @@ export default function LandingPage() {
       <SettlementArchitecture />
       <ComparisonSection />
       <SecurityArchitecture />
-      <FeaturesSection />
       <CallToActionSection />
       <LandingFooter />
     </div>
