@@ -1,14 +1,17 @@
 ﻿import type { Metadata } from 'next';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import HeroSection from '@/components/landing/HeroSection';
+import { LiveStatsSection } from '@/components/landing/LiveStatsSection';
+import { SettlementArchitecture } from '@/components/landing/SettlementArchitecture';
+import { ComparisonSection } from '@/components/landing/ComparisonSection';
+import { SecurityArchitecture } from '@/components/landing/SecurityArchitecture';
 import FeaturesSection from '@/components/landing/FeaturesSection';
-import HowItWorksSection from '@/components/landing/HowItWorksSection';
 import CallToActionSection from '@/components/landing/CallToActionSection';
 import LandingFooter from '@/components/landing/LandingFooter';
 
 export const metadata: Metadata = {
-  title: 'ORRANGE — P2P USDC to INR Settlement',
-  description: 'Peer-to-peer crypto off-ramp. Convert USDC to INR instantly via verified merchants. No banks, no friction.',
+  title: 'ORRANGE — The Fastest Way to Settle Crypto',
+  description: 'Convert USDC to INR in under 2 minutes. Non-custodial P2P settlement with 48+ verified merchants. Smart contract secured.',
 };
 
 export default function LandingPage() {
@@ -16,8 +19,11 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black text-white">
       <LandingHeader />
       <HeroSection />
+      <LiveStatsSection />
+      <SettlementArchitecture />
+      <ComparisonSection />
+      <SecurityArchitecture />
       <FeaturesSection />
-      <HowItWorksSection />
       <CallToActionSection />
       <LandingFooter />
     </div>
