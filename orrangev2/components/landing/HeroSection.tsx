@@ -9,6 +9,7 @@ import { InfiniteSlider } from '@/components/ui/infinite-slider';
 import { AnimatedGroup } from '@/components/motion-primitives/animated-group';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { LiveConversionCard } from '@/components/landing/LiveConversionCard';
 
 const Dither = dynamic(() => import('@/components/landing/Dither'), { ssr: false });
 
@@ -85,122 +86,90 @@ export default function HeroSection() {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 z-0"
           style={{ background: 'linear-gradient(to bottom, transparent, black)' }} />
 
-        <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-40 lg:pt-48">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="flex justify-center mb-8"
-          >
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-medium">
-              <Sparkles className="w-4 h-4" />
-              Now Live on Sepolia Testnet
-            </span>
-          </motion.div>
+        <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-32 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 lg:pt-40">
+          {/* Left - Text */}
+          <div className="relative mx-auto max-w-xl lg:mx-0">
+            {/* Location badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="mb-6"
+            >
+              <span className="font-mono text-xs text-orange-400/70">
+                Mumbai, India — Live on Sepolia Testnet
+              </span>
+            </motion.div>
 
-          {/* Huge Typography - Centered like Stripe/Linear */}
-          <div className="text-center mb-12">
+            {/* Typography - similar to old design but enhanced */}
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-white tracking-tight leading-[0.9] mb-6"
+              className="text-5xl md:text-6xl lg:text-6xl font-bold leading-tight text-white tracking-tight"
             >
-              The fastest way
+              Convert USDC
             </motion.h1>
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold tracking-tight leading-[0.9]"
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="text-5xl md:text-6xl lg:text-6xl font-bold leading-tight"
               style={{ 
-                background: 'linear-gradient(135deg, #FF6B00 0%, #FF8C38 50%, #FFB347 100%)',
+                background: 'linear-gradient(135deg, #FF6B00 0%, #FF8C38 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               }}
             >
-              to settle crypto.
+              to INR instantly.
             </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="mt-6 max-w-md text-base leading-relaxed text-white/40"
+            >
+              Peer-to-peer crypto settlement. No banks, no friction. Connect your wallet, find a merchant, settle in minutes.
+            </motion.p>
+
+            {/* CTA Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="mt-8 flex flex-col sm:flex-row items-center gap-3"
+            >
+              <MagneticButton
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-black font-semibold hover:gap-3 transition-all duration-300"
+                style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C38)' }}
+              >
+                <Link href="/auth/signup" className="flex items-center gap-2">
+                  Start Trading
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </MagneticButton>
+              
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="px-6 py-3 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white backdrop-blur-sm"
+              >
+                <Link href="/auth/login">Sign In</Link>
+              </Button>
+            </motion.div>
           </div>
 
-          {/* Subtitle with breathing room */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="text-center text-xl md:text-2xl text-white/50 max-w-3xl mx-auto mb-16 leading-relaxed"
-          >
-            Convert USDC to INR in under 2 minutes. 
-            <br className="hidden md:block" />
-            Non-custodial. Peer-to-peer. Zero friction.
-          </motion.p>
-
-          {/* CTA Buttons with magnetic effect */}
+          {/* Right - Live Conversion Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="relative mt-12 lg:mt-0"
           >
-            <MagneticButton
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-black font-semibold text-lg hover:gap-4 transition-all duration-300"
-              style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C38)' }}
-            >
-              <Link href="/auth/signup" className="flex items-center gap-2">
-                Start Trading
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-            </MagneticButton>
-            
-            <Button
-              asChild
-              size="lg"
-              variant="ghost"
-              className="px-8 py-4 rounded-full border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white text-lg backdrop-blur-sm"
-            >
-              <Link href="/auth/login">Sign In</Link>
-            </Button>
+            <LiveConversionCard />
           </motion.div>
-
-          {/* Trust badges */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 1 }}
-            className="flex flex-wrap items-center justify-center gap-8 mt-16 text-white/30 text-sm"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>Non-custodial</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>Smart Contract Secured</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-400" />
-              <span>48+ Active Merchants</span>
-            </div>
-          </motion.div>
-
-          {/* Stats row */}
-          <AnimatedGroup
-            triggerOnView
-            variants={mkGroup(0.07, 0.2)}
-            className="mt-16 flex items-center justify-center gap-12 border-t border-white/6 pt-8"
-          >
-            {[
-              { v: '< 2 min', l: 'Settlement time' },
-              { v: '₹90/USDC', l: 'Live rate' },
-              { v: 'P2P', l: 'No custodian' },
-            ].map(s => (
-              <div key={s.l} className="text-center">
-                <p className="text-2xl font-bold text-white font-mono">{s.v}</p>
-                <p className="mt-1 text-xs text-white/40 uppercase tracking-wider">{s.l}</p>
-              </div>
-            ))}
-          </AnimatedGroup>
         </div>
       </section>
 
