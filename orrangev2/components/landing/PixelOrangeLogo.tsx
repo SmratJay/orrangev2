@@ -15,7 +15,7 @@ export function PixelOrangeLogo({ size = 40, className = '' }: PixelOrangeLogoPr
       style={{ 
         width: size,
         height: size,
-        filter: 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 107, 0, 0.3))',
+        filter: 'drop-shadow(0 0 8px rgba(255, 107, 0, 0.5)) drop-shadow(0 0 16px rgba(255, 107, 0, 0.3))',
         imageRendering: 'pixelated'
       }}
     >
@@ -27,6 +27,7 @@ export function PixelOrangeLogo({ size = 40, className = '' }: PixelOrangeLogoPr
         className="object-contain"
         style={{ imageRendering: 'pixelated' }}
         priority
+        unoptimized // For pixel art crispness
       />
     </div>
   );
