@@ -63,32 +63,32 @@ float cnoise(vec2 P) {
   return 2.3 * mix(n_x.x, n_x.y, fade_xy.y);
 }
 
-// Dynamic flowing pattern with texture
-float flowingPattern(vec2 p, float t) {
-  // Multiple layers of noise for organic, ever-changing movement
-  float result = 0.0;
+// ORIGINAL pattern but with TIME-BASED animation
+float pattern(vec2 p) {
+  // Original formula but p2 now moves with time continuously
+  vec2 p2 = p - time * waveSpeed;
   
-  // Large slow waves - the base movement
-  vec2 uv1 = p + vec2(t * waveSpeed * 0.2, t * waveSpeed * 0.15);
-  result += abs(cnoise(uv1 * waveFrequency * 0.5)) * 0.5;
+  // Original fbm
+  float value = 0.0;
+  float amp = 1.0;
+  float freq = waveFrequency;
+  for (int i = 0; i < 4; i++) {
+    value += amp * abs(cnoise(p));
+    p *= freq;
+    amp *= waveAmplitude;
+  }
   
-  // Medium waves - flowing diagonally
-  vec2 uv2 = p * 1.5 + vec2(t * waveSpeed * 0.4, -t * waveSpeed * 0.25);
-  result += abs(cnoise(uv2 * waveFrequency)) * 0.35;
+  // Add second layer that moves
+  float value2 = 0.0;
+  amp = 1.0;
+  freq = waveFrequency;
+  for (int i = 0; i < 4; i++) {
+    value2 += amp * abs(cnoise(p2));
+    p2 *= freq;
+    amp *= waveAmplitude;
+  }
   
-  // Small detail waves - faster, more chaotic
-  vec2 uv3 = p * 2.0 + vec2(sin(t * waveSpeed * 0.6) * 0.5, cos(t * waveSpeed * 0.5) * 0.5);
-  result += abs(cnoise(uv3 * waveFrequency * 1.5)) * 0.2;
-  
-  // Micro texture - very subtle, adds grain
-  vec2 uv4 = p * 4.0 + t * waveSpeed * 0.1;
-  result += abs(cnoise(uv4 * waveFrequency * 2.0)) * 0.1;
-  
-  // Apply amplitude with subtle pulsing
-  float pulse = sin(t * 0.4) * 0.1 + 0.9;
-  result *= waveAmplitude * pulse;
-  
-  return result;
+  return value + value2 * 0.5;
 }
 
 void main() {
@@ -96,23 +96,19 @@ void main() {
   uv -= 0.5;
   uv.x *= resolution.x / resolution.y;
   
-  // Base flowing pattern - always moving
-  float f = flowingPattern(uv, time);
+  // ORIGINAL visual style
+  float f = pattern(uv);
   
-  // Mouse interaction - subtle darkening ripple
+  // ORIGINAL mouse interaction
   if (enableMouseInteraction == 1) {
     vec2 mouseNDC = (mousePos / resolution - 0.5) * vec2(1.0, -1.0);
     mouseNDC.x *= resolution.x / resolution.y;
     float dist = length(uv - mouseNDC);
     float effect = 1.0 - smoothstep(0.0, mouseRadius, dist);
-    // Subtle darkening instead of harsh effect
-    f -= effect * 0.3;
+    f -= 0.5 * effect;
   }
   
-  // Keep it subtle and textured - not too dense
-  f = clamp(f, 0.0, 0.7);
-  
-  // Mix with pure black for darkness
+  // ORIGINAL color mixing (full range, not clamped to 0.7)
   vec3 col = mix(vec3(0.0), waveColor, f);
   
   gl_FragColor = vec4(col, 1.0);
