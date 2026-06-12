@@ -67,17 +67,17 @@ export default function HeroSection() {
     <main className="overflow-x-hidden">
       {/* ── Hero ────────────────────────────── */}
       <section className="relative min-h-screen">
-        {/* Dither animated background */}
-        <div className="absolute inset-0 z-0 opacity-45">
+        {/* Dither animated background - more dynamic */}
+        <div className="absolute inset-0 z-0 opacity-60">
           <Dither
             waveColor={[1.0, 0.42, 0.0]}
-            waveSpeed={0.04}
-            waveFrequency={2.5}
-            waveAmplitude={0.35}
+            waveSpeed={0.15}
+            waveFrequency={3.0}
+            waveAmplitude={0.5}
             colorNum={4}
             pixelSize={2}
             enableMouseInteraction
-            mouseRadius={0.8}
+            mouseRadius={1.2}
             className="w-full h-full"
           />
         </div>

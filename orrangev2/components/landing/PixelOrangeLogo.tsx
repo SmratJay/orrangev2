@@ -1,79 +1,50 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface PixelOrangeLogoProps {
   size?: number;
   className?: string;
 }
 
-export function PixelOrangeLogo({ size = 48, className = '' }: PixelOrangeLogoProps) {
-  const pixelSize = size / 12;
-  
-  // Pixel art representation of peeled orange (0 = empty, 1 = orange, 2 = peel/highlight, 3 = shadow)
-  const pixelMap = [
-    [0,0,0,1,1,1,1,1,0,0,0,0],
-    [0,0,1,1,2,2,2,1,1,0,0,0],
-    [0,1,1,2,2,2,2,2,1,1,0,0],
-    [0,1,2,2,3,3,3,2,2,1,0,0],
-    [1,1,2,3,3,3,3,3,2,1,1,0],
-    [1,2,2,3,3,3,3,3,2,2,1,0],
-    [1,2,2,3,3,3,3,3,2,2,1,0],
-    [1,2,2,3,3,3,3,3,2,2,1,0],
-    [1,1,2,3,3,3,3,3,2,1,1,0],
-    [0,1,2,2,3,3,3,2,2,1,0,0],
-    [0,1,1,2,2,2,2,2,1,1,0,0],
-    [0,0,1,1,1,1,1,1,1,0,0,0],
-  ];
-
-  const getColor = (type: number) => {
-    switch (type) {
-      case 1: return '#FF6B00'; // Main orange
-      case 2: return '#FF8C38'; // Lighter orange/peel
-      case 3: return '#CC5500'; // Darker/shadow
-      default: return 'transparent';
-    }
-  };
-
+export function PixelOrangeLogo({ size = 40, className = '' }: PixelOrangeLogoProps) {
   return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox={`0 0 ${size} ${size}`}
-      className={className}
+    <div 
+      className={`relative ${className}`}
       style={{ 
-        filter: 'drop-shadow(0 0 8px rgba(255, 107, 0, 0.4)) drop-shadow(0 0 16px rgba(255, 107, 0, 0.2))',
+        width: size,
+        height: size,
+        filter: 'drop-shadow(0 0 6px rgba(255, 107, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 107, 0, 0.3))',
         imageRendering: 'pixelated'
       }}
     >
-      {pixelMap.map((row, y) =>
-        row.map((pixel, x) => {
-          if (pixel === 0) return null;
-          return (
-            <rect
-              key={`${x}-${y}`}
-              x={x * pixelSize}
-              y={y * pixelSize}
-              width={pixelSize}
-              height={pixelSize}
-              fill={getColor(pixel)}
-              shapeRendering="crispEdges"
-            />
-          );
-        })
-      )}
-    </svg>
+      <Image
+        src="/orange-logo.png"
+        alt="ORRANGE"
+        width={size}
+        height={size}
+        className="object-contain"
+        style={{ imageRendering: 'pixelated' }}
+        priority
+      />
+    </div>
   );
 }
 
 export function PixelOrangeText({ className = '' }: { className?: string }) {
   return (
     <span 
-      className={`font-mono font-bold tracking-wider ${className}`}
+      className={`font-black tracking-tight ${className}`}
       style={{
-        fontFamily: "'Courier New', monospace",
-        textShadow: '0 0 10px rgba(255, 107, 0, 0.5), 0 0 20px rgba(255, 107, 0, 0.3), 0 0 30px rgba(255, 107, 0, 0.1)',
-        letterSpacing: '0.15em'
+        fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+        fontWeight: 900,
+        letterSpacing: '-0.02em',
+        textShadow: '0 0 20px rgba(255, 107, 0, 0.4), 0 0 40px rgba(255, 107, 0, 0.2)',
+        background: 'linear-gradient(135deg, #FF6B00 0%, #FF8C38 50%, #FFB347 100%)',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text'
       }}
     >
       ORRANGE

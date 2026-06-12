@@ -63,37 +63,70 @@ float cnoise(vec2 P) {
   return 2.3 * mix(n_x.x, n_x.y, fade_xy.y);
 }
 
-const int OCTAVES = 4;
-float fbm(vec2 p) {
-  float value = 0.0;
-  float amp = 1.0;
-  float freq = waveFrequency;
-  for (int i = 0; i < OCTAVES; i++) {
-    value += amp * abs(cnoise(p));
-    p *= freq;
-    amp *= waveAmplitude;
-  }
-  return value;
+// Smooth noise for organic movement
+float smoothNoise(vec2 p) {
+  return cnoise(p) * 0.5 + 0.5;
 }
 
-float pattern(vec2 p) {
-  vec2 p2 = p - time * waveSpeed;
-  return fbm(p + fbm(p2));
+// Multi-layered flowing waves
+float flowingWaves(vec2 p, float t) {
+  float result = 0.0;
+  float amplitude = 1.0;
+  float frequency = waveFrequency;
+  
+  // Layer 1: Slow base flow
+  vec2 flow1 = p + vec2(t * waveSpeed * 0.3, t * waveSpeed * 0.1);
+  result += smoothNoise(flow1 * frequency) * amplitude;
+  
+  // Layer 2: Medium speed diagonal flow
+  vec2 flow2 = p * 1.5 + vec2(t * waveSpeed * 0.5, -t * waveSpeed * 0.3);
+  result += smoothNoise(flow2 * frequency * 1.3) * amplitude * 0.7;
+  
+  // Layer 3: Faster detail flow
+  vec2 flow3 = p * 2.0 + vec2(-t * waveSpeed * 0.8, t * waveSpeed * 0.6);
+  result += smoothNoise(flow3 * frequency * 2.0) * amplitude * 0.4;
+  
+  // Layer 4: Subtle pulsing
+  float pulse = sin(t * 0.5) * 0.5 + 0.5;
+  vec2 flow4 = p * 0.5 + vec2(t * waveSpeed * 0.2);
+  result += smoothNoise(flow4 * frequency * 0.5) * amplitude * 0.3 * pulse;
+  
+  return result;
+}
+
+// Ripple effect from mouse
+float mouseRipple(vec2 uv, vec2 mouse) {
+  if (enableMouseInteraction == 0) return 0.0;
+  
+  vec2 mouseNDC = (mouse / resolution - 0.5) * vec2(1.0, -1.0);
+  mouseNDC.x *= resolution.x / resolution.y;
+  
+  float dist = length(uv - mouseNDC);
+  float ripple = sin(dist * 20.0 - time * 3.0) * 0.5 + 0.5;
+  ripple *= 1.0 - smoothstep(0.0, mouseRadius, dist);
+  
+  return ripple * 0.3;
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;
   uv -= 0.5;
   uv.x *= resolution.x / resolution.y;
-  float f = pattern(uv);
-  if (enableMouseInteraction == 1) {
-    vec2 mouseNDC = (mousePos / resolution - 0.5) * vec2(1.0, -1.0);
-    mouseNDC.x *= resolution.x / resolution.y;
-    float dist = length(uv - mouseNDC);
-    float effect = 1.0 - smoothstep(0.0, mouseRadius, dist);
-    f -= 0.5 * effect;
-  }
+  
+  // Base flowing pattern
+  float f = flowingWaves(uv, time);
+  
+  // Add mouse ripple effect
+  f += mouseRipple(uv, mousePos);
+  
+  // Add subtle breathing effect
+  float breathe = sin(time * 0.3) * 0.05 + 1.0;
+  f *= breathe;
+  
+  // Clamp and color
+  f = clamp(f, 0.0, 1.0);
   vec3 col = mix(vec3(0.0), waveColor, f);
+  
   gl_FragColor = vec4(col, 1.0);
 }
 `;
