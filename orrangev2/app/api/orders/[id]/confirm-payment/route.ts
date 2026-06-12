@@ -17,9 +17,12 @@ export const POST = createAPIHandler(async (request, context) => {
   const { id: orderId } = await context!.params;
   
   // Parse and validate request body
-  let body: unknown;
+  let body: unknown = {};
   try {
-    body = await request.json();
+    const text = await request.text();
+    if (text) {
+      body = JSON.parse(text);
+    }
   } catch {
     body = {};
   }

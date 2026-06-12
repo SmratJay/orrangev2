@@ -1,5 +1,5 @@
 import { useWallets } from '@privy-io/react-auth';
-import { createWalletClient, createPublicClient, custom, parseUnits, encodeFunctionData, http } from 'viem';
+import { createWalletClient, custom, parseUnits, encodeFunctionData } from 'viem';
 import { sepolia } from 'viem/chains';
 
 // Sepolia USDC contract address
@@ -86,21 +86,31 @@ export async function getUSDCBalance(
 ): Promise<string> {
   if (!embeddedWallet) return '0';
 
-  const provider = await embeddedWallet.getEthereumProvider();
-  
-  const publicClient = createPublicClient({
-    chain: sepolia,
-    transport: http(),
-  });
+  try {
+    // Use Privy's provider which is already configured and reliable
+    const provider = await embeddedWallet.getEthereumProvider();
+    
+    // Read balance via provider's eth_call
+    const result = await provider.request({
+      method: 'eth_call',
+      params: [
+        {
+          to: USDC_ADDRESS,
+          data: encodeFunctionData({
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [embeddedWallet.address as `0x${string}`],
+          }),
+        },
+        'latest',
+      ],
+    });
 
-  // Read balance using public client
-  const balance = await publicClient.readContract({
-    address: USDC_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [embeddedWallet.address as `0x${string}`],
-  });
-
-  // Convert from wei to USDC (6 decimals)
-  return (Number(balance) / 1_000_000).toFixed(6);
+    // Parse the hex result
+    const balance = BigInt(result as string);
+    return (Number(balance) / 1_000_000).toFixed(6);
+  } catch (error) {
+    console.error('[getUSDCBalance] Error fetching balance:', error);
+    throw error;
+  }
 }

@@ -15,16 +15,20 @@ export const POST = createAPIHandler(async (request, context) => {
   const { privyId } = await requirePrivyUser(request);
   const { id: orderId } = await context!.params;
   
-  // Parse and validate request body
-  let body: unknown;
+  // Parse and validate request body (empty body is allowed)
+  let body: unknown = {};
   try {
-    body = await request.json();
+    const text = await request.text();
+    if (text) {
+      body = JSON.parse(text);
+    }
   } catch {
     body = {};
   }
   
   const parsed = acceptOrderSchema.safeParse(body);
   if (!parsed.success) {
+    console.error('[orders/accept] Validation failed:', parsed.error.errors);
     return errorResponse('Validation failed', 400, parsed.error.errors);
   }
 
