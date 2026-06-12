@@ -61,15 +61,19 @@ export function SellForm() {
   }, [wallets, walletsReady]);
 
   const fetchBalance = async (wallet: any) => {
+    console.log('[SellForm] fetchBalance START - wallet:', wallet?.address);
     setBalanceLoading(true);
     setBalanceError(null);
     try {
       const balance = await getUSDCBalance(wallet);
+      console.log('[SellForm] Balance fetched:', balance);
       setUsdcBalance(balance);
       setBalanceLoaded(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[SellForm] Error fetching balance:', error);
-      setBalanceError('Failed to load balance');
+      console.error('[SellForm] Error message:', error?.message);
+      console.error('[SellForm] Error stack:', error?.stack);
+      setBalanceError(`Failed to load balance: ${error?.message || 'Unknown error'}`);
       setBalanceLoaded(false);
     } finally {
       setBalanceLoading(false);

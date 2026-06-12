@@ -84,33 +84,47 @@ export async function sendUSDC(
 export async function getUSDCBalance(
   embeddedWallet: any
 ): Promise<string> {
-  if (!embeddedWallet) return '0';
+  console.log('[getUSDCBalance] START - wallet:', embeddedWallet?.address);
+  
+  if (!embeddedWallet) {
+    console.log('[getUSDCBalance] No wallet provided');
+    return '0';
+  }
 
   try {
     // Use Privy's provider which is already configured and reliable
+    console.log('[getUSDCBalance] Getting provider...');
     const provider = await embeddedWallet.getEthereumProvider();
+    console.log('[getUSDCBalance] Got provider:', !!provider);
+    
+    const callData = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [embeddedWallet.address as `0x${string}`],
+    });
+    console.log('[getUSDCBalance] Encoded calldata:', callData);
     
     // Read balance via provider's eth_call
+    console.log('[getUSDCBalance] Calling eth_call...');
     const result = await provider.request({
       method: 'eth_call',
       params: [
         {
           to: USDC_ADDRESS,
-          data: encodeFunctionData({
-            abi: ERC20_ABI,
-            functionName: 'balanceOf',
-            args: [embeddedWallet.address as `0x${string}`],
-          }),
+          data: callData,
         },
         'latest',
       ],
     });
+    console.log('[getUSDCBalance] eth_call result:', result);
 
     // Parse the hex result
     const balance = BigInt(result as string);
-    return (Number(balance) / 1_000_000).toFixed(6);
+    const formatted = (Number(balance) / 1_000_000).toFixed(6);
+    console.log('[getUSDCBalance] Final balance:', formatted);
+    return formatted;
   } catch (error) {
-    console.error('[getUSDCBalance] Error fetching balance:', error);
+    console.error('[getUSDCBalance] Error:', error);
     throw error;
   }
 }

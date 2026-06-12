@@ -116,21 +116,26 @@ export default function MerchantOrderPage() {
 
   // Accept order
   const handleAcceptOrder = async () => {
+    console.log('[Merchant] handleAcceptOrder START - orderId:', orderId);
     setActionLoading('accept');
     try {
+      console.log('[Merchant] Calling accept API...');
       const response = await fetch(`/api/orders/${orderId}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
+      console.log('[Merchant] Accept response status:', response.status);
 
       if (!response.ok) {
         const err = await response.json();
+        console.error('[Merchant] Accept API error:', err);
         throw new Error(err.error || 'Failed to accept order');
       }
 
+      console.log('[Merchant] Accept successful');
       await fetchOrder();
     } catch (err) {
-      console.error('[MerchantOrderPage] Accept error:', err);
+      console.error('[Merchant] Accept error:', err);
       alert(err instanceof Error ? err.message : 'Failed to accept order');
     } finally {
       setActionLoading(null);

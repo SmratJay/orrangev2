@@ -12,21 +12,29 @@ export const runtime = 'nodejs';
  * Merchant accepts an order
  */
 export const POST = createAPIHandler(async (request, context) => {
+  console.log('[orders/accept] === START ===');
   const { privyId } = await requirePrivyUser(request);
+  console.log('[orders/accept] privyId:', privyId);
   const { id: orderId } = await context!.params;
+  console.log('[orders/accept] orderId:', orderId);
   
   // Parse and validate request body (empty body is allowed)
   let body: unknown = {};
+  let rawText = '';
   try {
-    const text = await request.text();
-    if (text) {
-      body = JSON.parse(text);
+    rawText = await request.text();
+    console.log('[orders/accept] raw body:', rawText);
+    if (rawText) {
+      body = JSON.parse(rawText);
     }
-  } catch {
+  } catch (e) {
+    console.log('[orders/accept] parse error, using empty body:', e);
     body = {};
   }
+  console.log('[orders/accept] parsed body:', body);
   
   const parsed = acceptOrderSchema.safeParse(body);
+  console.log('[orders/accept] schema result:', parsed.success);
   if (!parsed.success) {
     console.error('[orders/accept] Validation failed:', parsed.error.errors);
     return errorResponse('Validation failed', 400, parsed.error.errors);
