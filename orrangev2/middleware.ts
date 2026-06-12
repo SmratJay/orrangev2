@@ -10,7 +10,7 @@ const securityHeaders = {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://auth.privy.io https://*.supabase.co wss://*.supabase.co https://*.etherscan.io https://api.coingecko.com https://*.ingest.sentry.io",
+    "connect-src 'self' https://auth.privy.io https://*.privy.systems https://*.supabase.co wss://*.supabase.co https://*.etherscan.io https://api.coingecko.com https://*.ingest.sentry.io https://*.drpc.org https://*.publicnode.com https://1rpc.io https://rpc.sepolia.org https://rpc2.sepolia.org",
     "frame-src 'self' https://auth.privy.io",
     "frame-ancestors 'none'",
     "base-uri 'self'",

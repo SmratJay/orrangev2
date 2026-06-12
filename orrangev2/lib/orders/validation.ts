@@ -11,10 +11,11 @@ const ethereumAddressSchema = z.string().refine(
   { message: 'Invalid Ethereum address format' }
 );
 
-const upiIdSchema = z.string().refine(
-  (val) => isValidUPI(val),
-  { message: 'Invalid UPI ID format (expected: username@upi)' }
-);
+const upiIdSchema = z.string()
+  .refine(
+    (val) => !val || isValidUPI(val), // Allow empty string or validate format
+    { message: 'Invalid UPI ID format (expected: username@upi)' }
+  );
 
 const safeStringSchema = z.string().transform((val) => sanitizeInput(val));
 
@@ -30,7 +31,7 @@ export const createOrderSchema = z.object({
 });
 
 export const acceptOrderSchema = z.object({
-  upiId: z.union([upiIdSchema, z.literal(''), z.undefined()]).optional(),
+  upiId: upiIdSchema.optional(),
 });
 
 export const submitPaymentSchema = z.object({
