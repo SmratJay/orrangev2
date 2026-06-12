@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { createWalletClient, custom, encodeFunctionData, parseUnits } from 'viem';
-import { sepolia } from 'viem/chains';
+import { encodeFunctionData, parseUnits } from 'viem';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, IndianRupee, Wallet } from 'lucide-react';
 import type { OrderStatus } from '@/lib/orders/status';
 
@@ -161,13 +160,7 @@ export default function MerchantOrderPage() {
       await embeddedWallet.switchChain(11155111);
 
       const provider = await embeddedWallet.getEthereumProvider();
-      console.log('[Confirm] Got provider — building viem wallet client');
-
-      const walletClient = createWalletClient({
-        account: embeddedWallet.address as `0x${string}`,
-        chain: sepolia,
-        transport: custom(provider),
-      });
+      console.log('[Confirm] Got provider — preparing transaction');
 
       const usdcAmount = parseUnits(String(data.order.usdc_amount), 6);
       const calldata = encodeFunctionData({
@@ -179,9 +172,14 @@ export default function MerchantOrderPage() {
 
       let txHash: string;
       try {
-        txHash = await walletClient.sendTransaction({
-          to: USDC_CONTRACT as `0x${string}`,
-          data: calldata,
+        // Use provider directly - works reliably with Privy's signatureless mode
+        txHash = await provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: embeddedWallet.address,
+            to: USDC_CONTRACT,
+            data: calldata,
+          }],
         });
       } catch (txErr) {
         console.error('[Confirm] sendTransaction error:', txErr);

@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePrivy, useWallets, getAccessToken } from '@privy-io/react-auth';
-import { createWalletClient, custom, encodeFunctionData, parseUnits } from 'viem';
-import { sepolia } from 'viem/chains';
+import { encodeFunctionData, parseUnits } from 'viem';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, Flag } from 'lucide-react';
 import { FileDispute } from '@/components/dispute/file-dispute';
 import type { OrderStatus } from '@/lib/orders/status';
@@ -515,11 +514,6 @@ export default function UserOrderPage() {
                     console.log('[Offramp] Switching to Sepolia...');
                     await embeddedWallet.switchChain(11155111);
                     const provider = await embeddedWallet.getEthereumProvider();
-                    const walletClient = createWalletClient({
-                      account: embeddedWallet.address as `0x${string}`,
-                      chain: sepolia,
-                      transport: custom(provider),
-                    });
                     const usdcAmount = parseUnits(String(order.usdc_amount), 6);
                     const calldata = encodeFunctionData({
                       abi: ERC20_TRANSFER_ABI,
@@ -527,9 +521,14 @@ export default function UserOrderPage() {
                       args: [merchantWalletAddress as `0x${string}`, usdcAmount],
                     });
                     console.log('[Offramp] Sending USDC tx — amount:', order.usdc_amount, 'to:', merchantWalletAddress);
-                    const txHash = await walletClient.sendTransaction({
-                      to: USDC_CONTRACT as `0x${string}`,
-                      data: calldata,
+                    // Use provider directly - works reliably with Privy's signatureless mode
+                    const txHash = await provider.request({
+                      method: 'eth_sendTransaction',
+                      params: [{
+                        from: embeddedWallet.address,
+                        to: USDC_CONTRACT,
+                        data: calldata,
+                      }],
                     });
                     console.log('[Offramp] txHash:', txHash);
                     const authToken = await getAccessToken();

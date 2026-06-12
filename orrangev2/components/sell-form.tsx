@@ -24,6 +24,8 @@ export function SellForm() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+  const [balanceLoaded, setBalanceLoaded] = useState(false);
 
   // Exchange rate: 1 USDC = 90 INR
   const EXCHANGE_RATE = 90;
@@ -60,11 +62,15 @@ export function SellForm() {
 
   const fetchBalance = async (wallet: any) => {
     setBalanceLoading(true);
+    setBalanceError(null);
     try {
       const balance = await getUSDCBalance(wallet);
       setUsdcBalance(balance);
+      setBalanceLoaded(true);
     } catch (error) {
       console.error('[SellForm] Error fetching balance:', error);
+      setBalanceError('Failed to load balance');
+      setBalanceLoaded(false);
     } finally {
       setBalanceLoading(false);
     }
@@ -190,8 +196,11 @@ export function SellForm() {
             value={amountUsdc}
             onChange={(e) => setAmountUsdc(e.target.value)}
           />
-          {amountUsdc && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
-            <p className="text-xs text-red-500">Amount exceeds your balance</p>
+          {amountUsdc && balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
+            <p className="text-xs text-red-500">Amount exceeds your balance ({usdcBalance} USDC available)</p>
+          )}
+          {balanceError && (
+            <p className="text-xs text-amber-600">⚠️ {balanceError} — please refresh</p>
           )}
         </div>
 
@@ -265,7 +274,7 @@ export function SellForm() {
             !walletAddress ||
             !userUpiId ||
             parseFloat(amountUsdc) <= 0 ||
-            parseFloat(amountUsdc) > parseFloat(usdcBalance)
+            (balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance))
           }
         >
           {loading ? (
