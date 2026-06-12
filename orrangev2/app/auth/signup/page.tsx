@@ -68,7 +68,7 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthLayout title="Create Account" description="Join BlockRamp and start converting crypto today">
+    <AuthLayout title="Create Account" description="Join ORRANGE and start converting crypto today">
       <div className="space-y-4">
         <Button
           onClick={handleSignup}

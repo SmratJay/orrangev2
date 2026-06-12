@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/server';
-import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
-import { parseRequestJson, formatZodError } from '@/lib/validation';
 import { submitPaymentSchema } from '@/lib/orders/validation';
 import { assertTransition } from '@/lib/orders/status';
+import { createAPIHandler, successResponse, errorResponse } from '@/lib/api-handler';
+import { createRateLimitKey } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -11,51 +11,55 @@ export const runtime = 'nodejs';
  * POST /api/orders/[id]/submit-payment
  * User submits payment reference after paying via UPI
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = createAPIHandler(async (request, context) => {
+  const { privyId } = await requirePrivyUser(request);
+  const { id: orderId } = await context!.params;
+  
+  // Parse and validate request body
+  let body: unknown;
   try {
-    const { privyId } = await requirePrivyUser(request);
-    const parsed = await parseRequestJson(request, submitPaymentSchema);
-    if (!parsed.ok) {
-      const details = formatZodError(parsed.error);
-      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
-    }
+    body = await request.json();
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+  
+  const parsed = submitPaymentSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse('Validation failed', 400, parsed.error.errors);
+  }
 
-    const supabase = await createClient();
-    const { id: orderId } = await params;
-    const { paymentReference } = parsed.data;
+  const { paymentReference } = parsed.data;
+  const supabase = await createClient();
 
     // Get current user
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
       .eq('privy_user_id', privyId)
       .single();
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (userError || !user) {
+      return errorResponse('User not found', 404);
     }
 
     // Get order
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (orderError || !order) {
+      return errorResponse('Order not found', 404);
     }
 
     if (order.user_id !== user.id) {
-      return NextResponse.json({ error: 'Not your order' }, { status: 403 });
+      return errorResponse('Not your order', 403);
     }
 
     const transition = assertTransition(order.status, 'payment_sent');
     if (!transition.ok) {
-      return NextResponse.json({ error: transition.error }, { status: 400 });
+      return errorResponse(transition.error, 400);
     }
 
     // Update order with payment reference
@@ -68,24 +72,16 @@ export async function POST(
       .eq('id', orderId);
 
     if (error) {
-      console.error('Error submitting payment:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      return NextResponse.json({ 
-        error: 'Failed to submit payment',
-        details: error.message,
-        hint: error.hint
-      }, { status: 500 });
+      console.error('[submit-payment] Database error:', error);
+      return errorResponse('Failed to submit payment', 500);
     }
 
     console.log('[Payment Submitted]', { orderId, reference: paymentReference });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('[orders/submit-payment] Error:', error);
-    console.error('[orders/submit-payment] Error details:', JSON.stringify(error, null, 2));
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
-  }
-}
+    return successResponse({ success: true });
+}, {
+  rateLimit: {
+    type: 'orderAction',
+    getKey: (req) => createRateLimitKey(req, undefined, 'submit-payment'),
+  },
+});

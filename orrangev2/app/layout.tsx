@@ -10,8 +10,8 @@ import { ErrorBoundary } from '@/components/error-boundary';
   const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
   export const metadata: Metadata = {
-    title: "BlockRamp - Crypto On/Off Ramp",
-    description: "Convert between USDC and INR seamlessly with BlockRamp",
+    title: "ORRANGE - Crypto On/Off Ramp",
+    description: "Convert between USDC and INR seamlessly with ORRANGE",
     generator: "v0.app",
     icons: {
       icon: [

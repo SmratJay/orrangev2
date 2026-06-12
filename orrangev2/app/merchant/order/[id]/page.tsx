@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import { encodeFunctionData, parseUnits } from 'viem';
+import { createWalletClient, custom, encodeFunctionData, parseUnits } from 'viem';
+import { sepolia } from 'viem/chains';
 import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, IndianRupee, Wallet } from 'lucide-react';
 import type { OrderStatus } from '@/lib/orders/status';
 
@@ -152,11 +153,21 @@ export default function MerchantOrderPage() {
       return;
     }
 
+    console.log('[Confirm] Starting — wallet:', embeddedWallet.address, 'recipient:', userWalletAddress);
     setActionLoading('confirm');
     try {
       // Switch to Sepolia
+      console.log('[Confirm] Switching to Sepolia...');
       await embeddedWallet.switchChain(11155111);
+
       const provider = await embeddedWallet.getEthereumProvider();
+      console.log('[Confirm] Got provider — building viem wallet client');
+
+      const walletClient = createWalletClient({
+        account: embeddedWallet.address as `0x${string}`,
+        chain: sepolia,
+        transport: custom(provider),
+      });
 
       const usdcAmount = parseUnits(String(data.order.usdc_amount), 6);
       const calldata = encodeFunctionData({
@@ -164,17 +175,26 @@ export default function MerchantOrderPage() {
         functionName: 'transfer',
         args: [userWalletAddress as `0x${string}`, usdcAmount],
       });
+      console.log('[Confirm] Sending USDC tx — amount:', data.order.usdc_amount, 'to:', userWalletAddress);
 
-      const txHash = await provider.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: embeddedWallet.address,
-          to: USDC_CONTRACT,
+      let txHash: string;
+      try {
+        txHash = await walletClient.sendTransaction({
+          to: USDC_CONTRACT as `0x${string}`,
           data: calldata,
-        }],
-      });
+        });
+      } catch (txErr) {
+        console.error('[Confirm] sendTransaction error:', txErr);
+        throw new Error(txErr instanceof Error ? txErr.message : 'Transaction failed or was rejected');
+      }
+      console.log('[Confirm] txHash:', txHash);
+
+      if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+        throw new Error(`Unexpected tx hash format from wallet: "${txHash}"`);
+      }
 
       // Record completion server-side
+      console.log('[Confirm] Calling confirm-payment API...');
       const response = await fetch(`/api/orders/${orderId}/confirm-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -183,9 +203,11 @@ export default function MerchantOrderPage() {
 
       if (!response.ok) {
         const err = await response.json();
+        console.error('[Confirm] API error:', err);
         throw new Error(err.error || 'Failed to confirm payment');
       }
 
+      console.log('[Confirm] Done — order completed');
       await fetchOrder();
     } catch (err) {
       console.error('[MerchantOrderPage] Confirm error:', err);

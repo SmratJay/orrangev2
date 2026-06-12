@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/server';
-import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
-import { parseRequestJson, formatZodError } from '@/lib/validation';
 import { acceptOrderSchema } from '@/lib/orders/validation';
 import { assertTransition } from '@/lib/orders/status';
+import { createAPIHandler, successResponse, errorResponse } from '@/lib/api-handler';
+import { createRateLimitKey } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -11,65 +11,69 @@ export const runtime = 'nodejs';
  * POST /api/orders/[id]/accept
  * Merchant accepts an order
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = createAPIHandler(async (request, context) => {
+  const { privyId } = await requirePrivyUser(request);
+  const { id: orderId } = await context!.params;
+  
+  // Parse and validate request body
+  let body: unknown;
   try {
-    const { privyId } = await requirePrivyUser(request);
-    const parsed = await parseRequestJson(request, acceptOrderSchema, {});
-    if (!parsed.ok) {
-      const details = formatZodError(parsed.error);
-      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
-    }
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  
+  const parsed = acceptOrderSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse('Validation failed', 400, parsed.error.errors);
+  }
 
-    const requestedUpi = parsed.data.upiId || undefined;
-    const supabase = await createClient();
-    const { id: orderId } = await params;
+  const requestedUpi = parsed.data.upiId;
+  const supabase = await createClient();
 
     // Get current user
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, user_type')
       .eq('privy_user_id', privyId)
       .single();
 
-    if (!user || user.user_type !== 'merchant') {
-      return NextResponse.json({ error: 'Unauthorized - merchant only' }, { status: 403 });
+    if (userError || !user || user.user_type !== 'merchant') {
+      return errorResponse('Unauthorized - merchant only', 403);
     }
 
     // Get merchant record (need default UPI)
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, upi_id')
       .eq('user_id', user.id)
       .single();
 
-    if (!merchant) {
-      return NextResponse.json({ error: 'Merchant record not found' }, { status: 404 });
+    if (merchantError || !merchant) {
+      return errorResponse('Merchant record not found', 404);
     }
 
     // Get order
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (orderError || !order) {
+      return errorResponse('Order not found', 404);
     }
 
     // Allow accepting orders that are either:
     // 1. Unassigned (merchant_id is null)
     // 2. Already assigned to this merchant
     if (order.merchant_id !== null && order.merchant_id !== merchant.id) {
-      return NextResponse.json({ error: 'This order is already assigned to another merchant' }, { status: 403 });
+      return errorResponse('This order is already assigned to another merchant', 403);
     }
 
     const transition = assertTransition(order.status, 'accepted');
     if (!transition.ok) {
-      return NextResponse.json({ error: transition.error }, { status: 400 });
+      return errorResponse(transition.error, 400);
     }
 
     // Use provided custom UPI or fall back to merchant default
@@ -87,23 +91,20 @@ export async function POST(
       .eq('id', orderId);
 
     if (error) {
-      console.error('Error accepting order:', error);
-      return NextResponse.json({ error: 'Failed to accept order', details: error }, { status: 500 });
+      console.error('[orders/accept] Database error:', error);
+      return errorResponse('Failed to accept order', 500);
     }
 
     console.log('[Order Accepted]', { 
       orderId, 
       merchantId: merchant.id,
-      chosenUpi
+      chosenUpi,
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('[orders/accept] Error:', error);
-    console.error('[orders/accept] Error details:', JSON.stringify(error, null, 2));
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
-  }
-}
+    return successResponse({ success: true });
+}, {
+  rateLimit: {
+    type: 'orderAction',
+    getKey: (req) => createRateLimitKey(req, undefined, 'accept-order'),
+  },
+});

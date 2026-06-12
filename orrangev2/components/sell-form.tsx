@@ -18,6 +18,8 @@ export function SellForm() {
   
   const [amountUsdc, setAmountUsdc] = useState('');
   const [userUpiId, setUserUpiId] = useState('');
+  const [defaultUpiId, setDefaultUpiId] = useState<string | null>(null);
+  const [usingDefault, setUsingDefault] = useState(false);
   const [loading, setLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
@@ -26,6 +28,24 @@ export function SellForm() {
   // Exchange rate: 1 USDC = 90 INR
   const EXCHANGE_RATE = 90;
   const inrAmount = amountUsdc ? (parseFloat(amountUsdc) * EXCHANGE_RATE).toFixed(2) : '0.00';
+
+  // Load default UPI from profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await fetch('/api/users/profile');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user?.default_upi_id) {
+            setDefaultUpiId(data.user.default_upi_id);
+            setUserUpiId(data.user.default_upi_id);
+            setUsingDefault(true);
+          }
+        }
+      } catch {}
+    };
+    loadProfile();
+  }, []);
 
   // Get wallet address and balance
   useEffect(() => {
@@ -177,16 +197,38 @@ export function SellForm() {
 
         {/* UPI ID */}
         <div className="space-y-2">
-          <Label>Your UPI ID (for receiving INR)</Label>
+          <div className="flex items-center justify-between">
+            <Label>Your UPI ID (for receiving INR)</Label>
+            {defaultUpiId && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (usingDefault) {
+                    setUsingDefault(false);
+                    setUserUpiId('');
+                  } else {
+                    setUsingDefault(true);
+                    setUserUpiId(defaultUpiId);
+                  }
+                }}
+                className="text-xs text-primary hover:text-primary/80 transition"
+              >
+                {usingDefault ? 'Use different UPI' : `Use default (${defaultUpiId})`}
+              </button>
+            )}
+          </div>
           <Input
             type="text"
             placeholder="yourname@upi"
             value={userUpiId}
-            onChange={(e) => setUserUpiId(e.target.value)}
+            onChange={(e) => { setUserUpiId(e.target.value); setUsingDefault(false); }}
           />
-          <p className="text-xs text-muted-foreground">
-            Enter the UPI ID where you want to receive INR
-          </p>
+          {usingDefault && defaultUpiId && (
+            <p className="text-xs text-green-600">✓ Using your default UPI ID</p>
+          )}
+          {!usingDefault && (
+            <p className="text-xs text-muted-foreground">Enter the UPI ID where you want to receive INR</p>
+          )}
         </div>
 
         {/* Summary */}

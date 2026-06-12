@@ -40,7 +40,6 @@ export const submitPaymentSchema = z.object({
 });
 
 export const completeOrderSchema = z.object({
-  orderId: z.string().uuid('Invalid order ID format'),
   txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash format'),
   paymentReference: safeStringSchema.pipe(
     z.string().min(1).max(100)
@@ -67,8 +66,27 @@ export const sendFiatSchema = z.object({
 }).or(z.object({})); // Allow empty body
 
 export const disputeSchema = z.object({
-  reason: safeStringSchema.pipe(
+  reason: z.enum([
+    'payment_not_received',
+    'usdc_not_received',
+    'wrong_amount',
+    'fraud',
+    'technical_issue',
+    'other',
+  ]),
+  description: safeStringSchema.pipe(
     z.string().min(10, 'Please provide more details').max(1000, 'Description too long')
   ),
   evidence: z.array(z.string().url()).max(5, 'Maximum 5 attachments').optional(),
+});
+
+// Review schema
+export const reviewSchema = z.object({
+  rating: z.number().int().min(1, 'Rating must be at least 1').max(5, 'Rating must be at most 5'),
+  comment: safeStringSchema.pipe(
+    z.string().max(1000, 'Comment too long')
+  ).optional(),
+  communicationRating: z.number().int().min(1).max(5).optional(),
+  speedRating: z.number().int().min(1).max(5).optional(),
+  reliabilityRating: z.number().int().min(1).max(5).optional(),
 });

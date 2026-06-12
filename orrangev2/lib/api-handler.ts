@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { captureException } from './sentry';
 import { apiSecurityHeaders } from './security';
+import { AuthenticationError } from './requirePrivyUser';
 
 interface APIContext {
   params: Promise<{ [key: string]: string }>;
@@ -124,6 +125,20 @@ export function createAPIHandler(
             headers: {
               ...apiSecurityHeaders,
               'X-Request-ID': requestId,
+            },
+          }
+        );
+      }
+      
+      if (error instanceof AuthenticationError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { 
+            status: 401,
+            headers: {
+              ...apiSecurityHeaders,
+              'X-Request-ID': requestId,
+              'WWW-Authenticate': 'Bearer',
             },
           }
         );

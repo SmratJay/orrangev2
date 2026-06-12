@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePrivy, useWallets, getAccessToken } from '@privy-io/react-auth';
-import { encodeFunctionData, parseUnits } from 'viem';
-import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink } from 'lucide-react';
+import { createWalletClient, custom, encodeFunctionData, parseUnits } from 'viem';
+import { sepolia } from 'viem/chains';
+import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, Flag } from 'lucide-react';
+import { FileDispute } from '@/components/dispute/file-dispute';
 import type { OrderStatus } from '@/lib/orders/status';
 
 interface OrderData {
@@ -82,6 +84,7 @@ export default function UserOrderPage() {
   const [paymentReference, setPaymentReference] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDispute, setShowDispute] = useState(false);
 
   // Fetch order data via API
   const fetchOrder = useCallback(async () => {
@@ -509,18 +512,26 @@ export default function UserOrderPage() {
                   }
                   setActionLoading(true);
                   try {
+                    console.log('[Offramp] Switching to Sepolia...');
                     await embeddedWallet.switchChain(11155111);
                     const provider = await embeddedWallet.getEthereumProvider();
+                    const walletClient = createWalletClient({
+                      account: embeddedWallet.address as `0x${string}`,
+                      chain: sepolia,
+                      transport: custom(provider),
+                    });
                     const usdcAmount = parseUnits(String(order.usdc_amount), 6);
                     const calldata = encodeFunctionData({
                       abi: ERC20_TRANSFER_ABI,
                       functionName: 'transfer',
                       args: [merchantWalletAddress as `0x${string}`, usdcAmount],
                     });
-                    const txHash = await provider.request({
-                      method: 'eth_sendTransaction',
-                      params: [{ from: embeddedWallet.address, to: USDC_CONTRACT, data: calldata }],
+                    console.log('[Offramp] Sending USDC tx — amount:', order.usdc_amount, 'to:', merchantWalletAddress);
+                    const txHash = await walletClient.sendTransaction({
+                      to: USDC_CONTRACT as `0x${string}`,
+                      data: calldata,
                     });
+                    console.log('[Offramp] txHash:', txHash);
                     const authToken = await getAccessToken();
                     const res = await fetch(`/api/orders/${orderId}/submit-usdc`, {
                       method: 'POST',
@@ -659,6 +670,27 @@ export default function UserOrderPage() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Dispute Filing - available for active non-pending orders */}
+        {!isCompleted && !isCancelled && !isExpired && order.status !== 'pending' && (
+          <div className="mt-2">
+            {!showDispute ? (
+              <button
+                onClick={() => setShowDispute(true)}
+                className="text-sm text-red-500 hover:text-red-400 flex items-center gap-1 transition"
+              >
+                <Flag className="w-3 h-3" />
+                File a dispute for this order
+              </button>
+            ) : (
+              <FileDispute
+                orderId={orderId}
+                orderType={order.type}
+                onDisputeFiled={() => { setShowDispute(false); fetchOrder(); }}
+              />
+            )}
+          </div>
         )}
 
         {(isCancelled || isExpired) && (

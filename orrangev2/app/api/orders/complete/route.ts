@@ -2,8 +2,13 @@ import { createClient } from '@/lib/server';
 import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
 import { requireAdminUser } from '@/lib/requireAdmin';
+import { z } from 'zod';
 import { parseRequestJson, formatZodError } from '@/lib/validation';
 import { completeOrderSchema } from '@/lib/orders/validation';
+
+const adminCompleteOrderSchema = completeOrderSchema.extend({
+  orderId: z.string().uuid('Invalid order ID format'),
+});
 
 export const runtime = 'nodejs';
 
@@ -34,7 +39,7 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
 
-    const parsed = await parseRequestJson(request, completeOrderSchema);
+    const parsed = await parseRequestJson(request, adminCompleteOrderSchema);
     if (!parsed.ok) {
       const details = formatZodError(parsed.error);
       return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });

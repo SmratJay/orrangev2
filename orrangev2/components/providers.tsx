@@ -22,10 +22,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
           showWalletLoginFirst: false,
         },
 
-        // 🧠 Smart Account Configuration (Account Abstraction)
+        // 🧠 Embedded Wallet Configuration
         embeddedWallets: {
-          // createOnLogin: 'users-without-wallets', // Requires newer SDK version
-          // requireUserPasswordOnCreate: false, // Requires newer SDK version
+          ethereum: {
+            createOnLogin: 'users-without-wallets',
+          },
+          showWalletUIs: false,
         },
 
         // 💰 External wallet configuration

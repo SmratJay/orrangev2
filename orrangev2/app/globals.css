@@ -4,76 +4,61 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated to dark orange theme */
-  --background: oklch(0.08 0 0);
+  --background: oklch(0.07 0 0);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0 0);
+  --card: oklch(0.10 0 0);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0 0);
+  --popover: oklch(0.10 0 0);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.55 0.25 40);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.18 0 0);
+  --primary: oklch(0.65 0.22 40);
+  --primary-foreground: oklch(0.08 0 0);
+  --secondary: oklch(0.15 0 0);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.6 0.28 45);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.60 0 0);
+  --accent: oklch(0.65 0.22 40);
   --accent-foreground: oklch(0.08 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.55 0.25 40);
-  --chart-1: oklch(0.6 0.28 45);
-  --chart-2: oklch(0.5 0.2 50);
-  --chart-3: oklch(0.4 0.15 35);
-  --chart-4: oklch(0.65 0.25 55);
-  --chart-5: oklch(0.7 0.23 42);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.12 0 0);
+  --border: oklch(0.18 0 0);
+  --input: oklch(0.13 0 0);
+  --ring: oklch(0.65 0.22 40);
+  --chart-1: oklch(0.65 0.22 40);
+  --chart-2: oklch(0.55 0.18 160);
+  --chart-3: oklch(0.50 0.15 220);
+  --chart-4: oklch(0.60 0.20 55);
+  --chart-5: oklch(0.70 0.20 42);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.10 0 0);
   --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.55 0.25 40);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.6 0.28 45);
+  --sidebar-primary: oklch(0.65 0.22 40);
+  --sidebar-primary-foreground: oklch(0.08 0 0);
+  --sidebar-accent: oklch(0.65 0.22 40);
   --sidebar-accent-foreground: oklch(0.08 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.55 0.25 40);
+  --sidebar-border: oklch(0.18 0 0);
+  --sidebar-ring: oklch(0.65 0.22 40);
 }
 
 .dark {
-  /* Dark mode colors with orange accents */
-  --background: oklch(0.08 0 0);
+  --background: oklch(0.07 0 0);
   --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0 0);
+  --card: oklch(0.10 0 0);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0 0);
+  --popover: oklch(0.10 0 0);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.55 0.25 40);
+  --primary: oklch(0.65 0.22 40);
   --primary-foreground: oklch(0.08 0 0);
-  --secondary: oklch(0.18 0 0);
+  --secondary: oklch(0.15 0 0);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.6 0.28 45);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.60 0 0);
+  --accent: oklch(0.65 0.22 40);
   --accent-foreground: oklch(0.08 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
+  --destructive: oklch(0.50 0.20 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.55 0.25 40);
-  --chart-1: oklch(0.6 0.28 45);
-  --chart-2: oklch(0.5 0.2 50);
-  --chart-3: oklch(0.4 0.15 35);
-  --chart-4: oklch(0.65 0.25 55);
-  --chart-5: oklch(0.7 0.23 42);
-  --sidebar: oklch(0.12 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.55 0.25 40);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.6 0.28 45);
-  --sidebar-accent-foreground: oklch(0.08 0 0);
-  --sidebar-border: oklch(0.2 0 0);
-  --sidebar-ring: oklch(0.55 0.25 40);
+  --border: oklch(0.18 0 0);
+  --input: oklch(0.13 0 0);
+  --ring: oklch(0.65 0.22 40);
 }
 
 @theme inline {
@@ -121,7 +106,80 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background: #0B0C0E;
+  }
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.4);
+}
+
+.glass-card-orange {
+  background: linear-gradient(135deg, rgba(255,122,26,0.12) 0%, rgba(255,255,255,0.03) 50%, rgba(255,143,58,0.08) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,122,26,0.2);
+  box-shadow: 0 8px 32px 0 rgba(255,122,26,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.neon-orange {
+  color: #FF7A1A;
+  text-shadow: 0 0 8px rgba(255,122,26,0.6);
+}
+
+.btn-orange {
+  background: linear-gradient(135deg, #FF7A1A 0%, #FF8F3A 100%);
+  color: #000;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(255,122,26,0.3);
+}
+.btn-orange:hover {
+  box-shadow: 0 0 32px rgba(255,122,26,0.5);
+  transform: translateY(-1px);
+}
+
+.stat-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.4);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+.stat-card:hover {
+  border-color: rgba(255,122,26,0.3);
+  box-shadow: 0 8px 32px rgba(255,122,26,0.1);
+  transform: translateY(-2px);
+}
+
+.nav-item-active {
+  background: linear-gradient(135deg, rgba(255,122,26,0.15) 0%, rgba(255,122,26,0.05) 100%);
+  border: 1px solid rgba(255,122,26,0.25);
+  color: #FF7A1A;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(255,122,26,0.4); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,122,26,0.6); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

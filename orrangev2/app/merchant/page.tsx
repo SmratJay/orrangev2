@@ -212,7 +212,7 @@ function MerchantContent() {
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary">BlockRamp Merchant</h1>
+          <h1 className="text-2xl font-bold text-primary">ORRANGE Merchant</h1>
           <div className="flex gap-4 items-center">
             <span className="text-sm text-muted-foreground">{user?.email?.address || "Merchant"}</span>
             <Button size="sm" variant="outline" onClick={logout} className="flex items-center gap-2 bg-transparent">

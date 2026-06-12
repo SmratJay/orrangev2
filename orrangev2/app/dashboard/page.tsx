@@ -4,16 +4,18 @@ import { useState, useEffect } from "react"
 import { usePrivy, useWallets, useCreateWallet, getAccessToken } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowDownUp, Plus, History, LogOut, ArrowLeft, Copy, Wallet as WalletIcon, RefreshCw } from "lucide-react"
-import Link from "next/link"
+import { History, ArrowLeft, Copy, Wallet as WalletIcon, RefreshCw, ArrowDownLeft, ArrowUpRight, ExternalLink, TrendingUp, Clock, CheckCircle2 } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
 import { BuyForm } from "@/components/buy-form"
 import { SellForm } from "@/components/sell-form"
 import { WalletBalance } from "@/components/wallet-balance"
+import { ProfileMenu } from "@/components/profile-menu"
+import { WelcomeAnimation } from "@/components/welcome-animation"
+import { NameCaptureModal } from "@/components/name-capture-modal"
+import { NotificationBell } from "@/components/notification-bell"
 
 function DashboardContent() {
-  const { user, logout, ready: privyReady } = usePrivy()
+  const { user } = usePrivy()
   const { wallets, ready: walletsReady } = useWallets()
   const { createWallet } = useCreateWallet()
   const router = useRouter()
@@ -24,6 +26,10 @@ function DashboardContent() {
   const [loading, setLoading] = useState(false)
   const [orders, setOrders] = useState<any[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
+  const [fullName, setFullName] = useState<string | null>(null)
+  const [showWelcome, setShowWelcome] = useState(false)
+  const [showNameCapture, setShowNameCapture] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   // Get embedded wallet address - recheck when wallets change
   useEffect(() => {
@@ -110,6 +116,20 @@ function DashboardContent() {
             router.push('/admin')
             return
           }
+
+          if (userData.id) setUserId(userData.id)
+          // New user — no name yet, show capture modal
+          if (!userData.full_name) {
+            setShowNameCapture(true)
+          } else {
+            setFullName(userData.full_name)
+            // Show welcome animation once per session
+            const welcomeKey = 'orrange_welcomed'
+            if (!sessionStorage.getItem(welcomeKey)) {
+              sessionStorage.setItem(welcomeKey, '1')
+              setShowWelcome(true)
+            }
+          }
           
           console.log('[Dashboard] User is regular user, staying on dashboard')
         } else {
@@ -129,274 +149,291 @@ function DashboardContent() {
 
   if (isCheckingUserType) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{background:'#0B0C0E'}}>
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="w-10 h-10 rounded-full animate-spin mx-auto mb-4" style={{border:'2px solid rgba(255,122,26,0.2)', borderTopColor:'#FF7A1A'}} />
+          <p className="text-muted-foreground text-sm">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{background:'#0B0C0E'}}>
+      {/* Name capture for new users */}
+      {showNameCapture && (
+        <NameCaptureModal onComplete={(name) => {
+          setFullName(name)
+          setShowNameCapture(false)
+          setShowWelcome(true)
+        }} />
+      )}
+
+      {/* Welcome animation - once per session */}
+      {showWelcome && (
+        <WelcomeAnimation name={fullName || user?.email?.address?.split('@')[0] || 'there'} />
+      )}
+
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
+      <header className="sticky top-0 z-40 border-b border-white/5" style={{background:'rgba(11,12,14,0.8)', backdropFilter:'blur(20px)'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <h1 
-            className="text-2xl font-bold text-primary cursor-pointer" 
-            onClick={() => setView('overview')}
-          >
-            BlockRamp
-          </h1>
-          <div className="flex gap-4 items-center">
-            <span className="text-sm text-muted-foreground">{user?.email?.address || "User"}</span>
-            <Button size="sm" variant="outline" onClick={logout} className="flex items-center gap-2 bg-transparent">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('overview')}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#FF7A1A,#FF8F3A)'}}>
+              <span className="text-black font-bold text-sm">O</span>
+            </div>
+            <h1 className="text-xl font-bold text-white">ORRANGE</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationBell userId={userId || undefined} />
+            <ProfileMenu
+              fullName={fullName}
+              walletAddress={embeddedWalletAddress}
+              userType="user"
+              onNameChange={setFullName}
+            />
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         {(view === 'buy' || view === 'sell' || view === 'history') && (
-          <Button 
-            variant="ghost" 
-            className="mb-6 flex items-center gap-2" 
+          <button
+            className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition"
             onClick={() => setView('overview')}
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
-          </Button>
+          </button>
         )}
 
-        {/* Conditional Rendering */}
         {view === 'buy' ? (
-          <div className="flex justify-center">
-            <BuyForm />
-          </div>
+          <div className="flex justify-center"><BuyForm /></div>
         ) : view === 'sell' ? (
-          <div className="flex justify-center">
-            <SellForm />
-          </div>
+          <div className="flex justify-center"><SellForm /></div>
         ) : view === 'history' ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Order History</CardTitle>
-              <CardDescription>Your past orders and transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingOrders ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
-                  <p className="text-muted-foreground mt-2">Loading orders...</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">Order History</h2>
+              <span className="text-sm text-muted-foreground">{orders.length} orders</span>
+            </div>
+            {loadingOrders ? (
+              <div className="text-center py-16">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-primary" />
+                <p className="text-muted-foreground mt-3 text-sm">Loading orders...</p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="glass-card rounded-xl p-16 text-center">
+                <Clock className="w-10 h-10 mx-auto mb-4 text-muted-foreground/40" />
+                <p className="text-muted-foreground">No orders yet. Start your first conversion!</p>
+              </div>
+            ) : (
+              orders.map((order: any) => (
+                <div
+                  key={order.id}
+                  className="glass-card rounded-xl p-5 cursor-pointer transition-all duration-200 hover:border-primary/30"
+                  style={{borderColor: 'rgba(255,255,255,0.06)'}}
+                  onClick={() => router.push(`/order/${order.id}`)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {order.type === 'onramp'
+                          ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                          : <ArrowUpRight className="w-4 h-4 text-primary" />
+                        }
+                        <span className="font-medium text-white">{order.type === 'onramp' ? 'On-Ramp' : 'Off-Ramp'}</span>
+                        <span className="text-xs text-muted-foreground font-mono">#{order.id.slice(0, 8)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                        order.status === 'completed' ? 'bg-green-500/15 text-green-400' :
+                        order.status === 'pending' ? 'bg-yellow-500/15 text-yellow-400' :
+                        order.status === 'accepted' ? 'bg-blue-500/15 text-blue-400' :
+                        'bg-white/10 text-muted-foreground'
+                      }`}>
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+                    <div className="flex gap-6">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Fiat</p>
+                        <p className="font-semibold text-white">₹{order.fiat_amount}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">USDC</p>
+                        <p className="font-semibold text-primary">{order.usdc_amount} USDC</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground/60">View →</span>
+                  </div>
                 </div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No orders yet. Start your first conversion!</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <Card key={order.id} className="border-border hover:border-primary/50 transition cursor-pointer"
-                      onClick={() => router.push(`/order/${order.id}`)}
-                    >
-                      <CardContent className="pt-6">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p>
-                          </div>
-                          <span className={`px-2 py-1 text-xs rounded ${
-                            order.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                            order.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            order.status === 'accepted' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-gray-500/20 text-gray-400'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Amount</p>
-                            <p className="font-semibold">₹{order.fiat_amount}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">USDC</p>
-                            <p className="font-semibold">{order.usdc_amount} USDC</p>
-                          </div>
-                        </div>
-                        <Button variant="outline" className="w-full mt-4" size="sm">
-                          View Details →
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              ))
+            )}
+          </div>
         ) : (
           <>
-            {/* Welcome Section */}
+            {/* Welcome */}
             <div className="mb-8">
-              <h2 className="text-3xl font-bold mb-2">Welcome back</h2>
-              <p className="text-muted-foreground">Manage your crypto conversions and transactions</p>
+              <h2 className="text-3xl font-bold text-white mb-1">
+                Welcome back{fullName ? <span className="text-primary"> {fullName}</span> : ''}
+              </h2>
+              <p className="text-muted-foreground">Your P2P crypto gateway</p>
             </div>
 
-            {/* Wallet Address Display */}
-            {embeddedWalletAddress ? (
-              <Card className="mb-8 border-primary/20 bg-linear-to-r from-primary/5 to-primary/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <WalletIcon className="w-5 h-5" />
-                    Your Embedded Wallet
-                  </CardTitle>
-                  <CardDescription>
-                    This is your Privy-managed smart wallet on Sepolia testnet
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
-                    <code className="flex-1 text-sm font-mono">
-                      {embeddedWalletAddress}
-                    </code>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={copyAddress}
-                      className="shrink-0"
-                    >
-                      {copiedAddress ? '✓ Copied' : <Copy className="w-4 h-4" />}
-                    </Button>
+            {/* Top row: Wallet Balance + Wallet Address */}
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <WalletBalance />
+
+              {embeddedWalletAddress ? (
+                <div className="glass-card rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                      <WalletIcon className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">Embedded Wallet</p>
+                  </div>
+                  <div className="flex items-center gap-2 p-3 rounded-lg mb-3" style={{background:'rgba(255,255,255,0.04)'}}>
+                    <code className="flex-1 text-xs font-mono text-muted-foreground truncate">{embeddedWalletAddress}</code>
+                    <button onClick={copyAddress} className="shrink-0 p-1 hover:bg-white/10 rounded transition">
+                      {copiedAddress
+                        ? <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        : <Copy className="w-4 h-4 text-muted-foreground" />}
+                    </button>
                   </div>
                   <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <button
                       onClick={() => window.open(`https://sepolia.etherscan.io/address/${embeddedWalletAddress}`, '_blank')}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-white transition px-2 py-1 rounded hover:bg-white/10"
                     >
-                      View on Explorer
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                      <ExternalLink className="w-3 h-3" /> Explorer
+                    </button>
+                    <button
                       onClick={() => window.open('https://sepoliafaucet.com/', '_blank')}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-white transition px-2 py-1 rounded hover:bg-white/10"
                     >
                       Get Testnet ETH
-                    </Button>
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="mb-8 border-yellow-500/20 bg-linear-to-r from-yellow-500/5 to-yellow-500/10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <WalletIcon className="w-5 h-5" />
-                    No Wallet Found
-                  </CardTitle>
-                  <CardDescription>
-                    {!walletsReady ? 'Loading wallet...' : 'Create an embedded wallet to start using BlockRamp'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!walletsReady ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Checking for wallet...</span>
-                    </div>
-                  ) : (
-                    <Button 
-                      onClick={handleCreateWallet}
-                      disabled={loading}
-                      className="w-full"
-                    >
-                      {loading ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Creating Wallet...
-                        </>
-                      ) : (
-                        <>
-                          <WalletIcon className="w-4 h-4 mr-2" />
-                          Create Embedded Wallet
-                        </>
-                      )}
+                </div>
+              ) : (
+                <div className="glass-card rounded-xl p-6 border border-yellow-500/20">
+                  <div className="flex items-center gap-2 mb-4">
+                    <WalletIcon className="w-5 h-5 text-yellow-400" />
+                    <p className="font-medium text-white">No Wallet Found</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {!walletsReady ? 'Checking for wallet...' : 'Create an embedded wallet to start using ORRANGE'}
+                  </p>
+                  {walletsReady && (
+                    <Button onClick={handleCreateWallet} disabled={loading} className="w-full btn-orange border-0">
+                      {loading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <WalletIcon className="w-4 h-4 mr-2" />}
+                      {loading ? 'Creating...' : 'Create Embedded Wallet'}
                     </Button>
                   )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 2. PLACED HERE: Your Wallet Balance is the first thing users see */}
-            <div className="mb-8">
-              <WalletBalance />
-            </div>
-
-            {/* Quick Actions Grid */}
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              {/* ON RAMP CARD */}
-              <Card
-                className="bg-linear-to-br from-primary/10 to-transparent border-primary/30 hover:border-primary/50 transition cursor-pointer"
-                onClick={() => setView('buy')}
-              >
-                <CardHeader>
-                  <Plus className="w-8 h-8 text-primary mb-2" />
-                  <CardTitle>On-Ramp</CardTitle>
-                  <CardDescription>Convert INR to USDC</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full bg-primary hover:bg-primary/90">Start Conversion</Button>
-                </CardContent>
-              </Card>
-
-              {/* OFF RAMP CARD */}
-              <Card 
-                className="bg-linear-to-br from-accent/10 to-transparent border-accent/30 hover:border-accent/50 transition cursor-pointer"
-                onClick={() => setView('sell')}
-              >
-                <CardHeader>
-                  <ArrowDownUp className="w-8 h-8 text-accent mb-2" />
-                  <CardTitle>Off-Ramp</CardTitle>
-                  <CardDescription>Sell USDC for INR</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full bg-accent hover:bg-accent/90">Sell USDC</Button>
-                </CardContent>
-              </Card>
-
-              {/* HISTORY CARD */}
-              <Card 
-                className="border-border hover:border-primary/30 transition cursor-pointer"
-                onClick={() => setView('history')}
-              >
-                <CardHeader>
-                  <History className="w-8 h-8 text-muted-foreground mb-2" />
-                  <CardTitle>History</CardTitle>
-                  <CardDescription>View past transactions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full bg-transparent">
-                    View History
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Transactions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-                <CardDescription>Your latest conversions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No transactions yet. Start your first conversion!</p>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              <button
+                onClick={() => setView('buy')}
+                className="glass-card rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 group"
+                style={{borderColor:'rgba(255,122,26,0.15)'}}
+              >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{background:'rgba(255,122,26,0.15)'}}>
+                  <ArrowDownLeft className="w-5 h-5 text-primary" />
+                </div>
+                <p className="font-semibold text-white mb-1">On-Ramp</p>
+                <p className="text-sm text-muted-foreground">INR → USDC</p>
+              </button>
+
+              <button
+                onClick={() => setView('sell')}
+                className="glass-card rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 group"
+                style={{borderColor:'rgba(34,197,94,0.15)'}}
+              >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{background:'rgba(34,197,94,0.12)'}}>
+                  <ArrowUpRight className="w-5 h-5 text-green-400" />
+                </div>
+                <p className="font-semibold text-white mb-1">Off-Ramp</p>
+                <p className="text-sm text-muted-foreground">USDC → INR</p>
+              </button>
+
+              <button
+                onClick={() => setView('history')}
+                className="glass-card rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-1 group"
+                style={{borderColor:'rgba(255,255,255,0.06)'}}
+              >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{background:'rgba(255,255,255,0.06)'}}>
+                  <History className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <p className="font-semibold text-white mb-1">History</p>
+                <p className="text-sm text-muted-foreground">Past transactions</p>
+              </button>
+            </div>
+
+            {/* Recent activity preview */}
+            <div className="glass-card rounded-xl">
+              <div className="flex items-center justify-between p-6 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-white">Recent Activity</h3>
+                </div>
+                <button onClick={() => { setView('history'); fetchOrders(); }} className="text-sm text-primary hover:text-primary/80 transition">
+                  View all →
+                </button>
+              </div>
+              <div className="p-6">
+                {loadingOrders ? (
+                  <div className="text-center py-8">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Clock className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
+                    <p className="text-muted-foreground text-sm">No transactions yet</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Start your first conversion above</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {orders.slice(0, 3).map((order: any) => (
+                      <div
+                        key={order.id}
+                        className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-white/5 transition"
+                        onClick={() => router.push(`/order/${order.id}`)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            order.type === 'onramp' ? 'bg-green-500/10' : 'bg-primary/10'
+                          }`}>
+                            {order.type === 'onramp'
+                              ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                              : <ArrowUpRight className="w-4 h-4 text-primary" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">{order.type === 'onramp' ? 'On-Ramp' : 'Off-Ramp'}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-white">{order.usdc_amount} USDC</p>
+                          <span className={`text-xs ${
+                            order.status === 'completed' ? 'text-green-400' :
+                            order.status === 'pending' ? 'text-yellow-400' : 'text-muted-foreground'
+                          }`}>{order.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </main>

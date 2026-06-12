@@ -65,7 +65,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Login" description="Connect your wallet or email to access BlockRamp">
+    <AuthLayout title="Login" description="Connect your wallet or email to access ORRANGE">
       <div className="space-y-4">
         <Button
           onClick={handleLogin}

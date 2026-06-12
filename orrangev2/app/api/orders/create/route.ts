@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/server';
-import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
-import { parseRequestJson, formatZodError } from '@/lib/validation';
 import { createOrderSchema } from '@/lib/orders/validation';
+import { createAPIHandler, successResponse, errorResponse } from '@/lib/api-handler';
+import { createRateLimitKey } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -10,28 +10,34 @@ export const runtime = 'nodejs';
  * POST /api/orders/create
  * Create a new order (on-ramp or off-ramp)
  */
-export async function POST(request: Request) {
+export const POST = createAPIHandler(async (request) => {
+  const { privyId } = await requirePrivyUser(request);
+  const supabase = await createClient();
+
+  // Parse and validate request body
+  let body: unknown;
   try {
-    const { privyId } = await requirePrivyUser(request);
-    const supabase = await createClient();
+    body = await request.json();
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
 
-    const parsed = await parseRequestJson(request, createOrderSchema);
-    if (!parsed.ok) {
-      const details = formatZodError(parsed.error);
-      return NextResponse.json({ error: details.message, issues: details.issues }, { status: 400 });
-    }
+  const parsed = createOrderSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse('Validation failed', 400, parsed.error.errors);
+  }
 
-    const { type, fiatAmount, usdcAmount, userWalletAddress } = parsed.data;
+  const { type, fiatAmount, usdcAmount, userWalletAddress } = parsed.data;
 
     // Get user from database
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, embedded_wallet_address')
       .eq('privy_user_id', privyId)
       .single();
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (userError || !user) {
+      return errorResponse('User not found', 404);
     }
 
     // Create order WITHOUT assigning merchant (merchant accepts manually)
@@ -39,39 +45,34 @@ export async function POST(request: Request) {
       .from('orders')
       .insert({
         user_id: user.id,
-        merchant_id: null, // No merchant assigned yet
+        merchant_id: null,
         type,
         fiat_amount: fiatAmount,
         usdc_amount: usdcAmount,
-        status: 'pending', // Will change to 'accepted' when merchant accepts
+        status: 'pending',
         user_wallet_address: userWalletAddress || user.embedded_wallet_address,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating order:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      return NextResponse.json({ 
-        error: 'Failed to create order', 
-        details: error.message || 'Unknown error',
-        hint: error.hint || null 
-      }, { status: 500 });
+      console.error('[orders/create] Database error:', error);
+      return errorResponse('Failed to create order', 500, { hint: error.hint });
     }
 
     console.log('[Order Created]', {
       orderId: order.id,
       userId: user.id,
       amount: `₹${fiatAmount} → ${usdcAmount} USDC`,
-      status: 'pending (waiting for merchant to accept)',
     });
 
-    return NextResponse.json({ 
+    return successResponse({ 
       success: true, 
       order,
     });
-  } catch (error) {
-    console.error('[orders/create] Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+}, {
+  rateLimit: {
+    type: 'orderCreate',
+    getKey: (req) => createRateLimitKey(req, undefined, 'create-order'),
+  },
+});

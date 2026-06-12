@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/server';
-import { NextResponse } from 'next/server';
 import { requirePrivyUser } from '@/lib/requirePrivyUser';
 import { assertTransition } from '@/lib/orders/status';
+import { completeOrderSchema } from '@/lib/orders/validation';
+import { createAPIHandler, successResponse, errorResponse } from '@/lib/api-handler';
+import { createRateLimitKey } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -10,54 +12,63 @@ export const runtime = 'nodejs';
  * Merchant confirms INR received and USDC already sent to user client-side.
  * Body: { txHash: string }
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = createAPIHandler(async (request, context) => {
+  const { privyId } = await requirePrivyUser(request);
+  const { id: orderId } = await context!.params;
+  
+  // Parse and validate request body
+  let body: unknown;
   try {
-    const { privyId } = await requirePrivyUser(request);
-    const supabase = await createClient();
-    const { id: orderId } = await params;
-    const body = await request.json().catch(() => ({}));
-    const txHash: string | undefined = body.txHash;
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  
+  const parsed = completeOrderSchema.safeParse(body);
+  if (!parsed.success) {
+    return errorResponse('Validation failed', 400, parsed.error.errors);
+  }
+  
+  const { txHash } = parsed.data;
+  const supabase = await createClient();
 
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, user_type')
       .eq('privy_user_id', privyId)
       .single();
 
-    if (!user || user.user_type !== 'merchant') {
-      return NextResponse.json({ error: 'Unauthorized - merchant only' }, { status: 403 });
+    if (userError || !user || user.user_type !== 'merchant') {
+      return errorResponse('Unauthorized - merchant only', 403);
     }
 
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
       .single();
 
-    if (!merchant) {
-      return NextResponse.json({ error: 'Merchant record not found' }, { status: 404 });
+    if (merchantError || !merchant) {
+      return errorResponse('Merchant record not found', 404);
     }
 
-    const { data: order } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, status, merchant_id')
       .eq('id', orderId)
       .single();
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (orderError || !order) {
+      return errorResponse('Order not found', 404);
     }
 
     if (order.merchant_id !== merchant.id) {
-      return NextResponse.json({ error: 'Not your order' }, { status: 403 });
+      return errorResponse('Not your order', 403);
     }
 
     const transition = assertTransition(order.status, 'completed');
     if (!transition.ok) {
-      return NextResponse.json({ error: transition.error }, { status: 400 });
+      return errorResponse(transition.error, 400);
     }
 
     const now = new Date().toISOString();
@@ -72,14 +83,15 @@ export async function POST(
       .eq('id', orderId);
 
     if (error) {
-      console.error('[confirm-payment] DB error:', error);
-      return NextResponse.json({ error: 'Failed to complete order', detail: error.message }, { status: 500 });
+      console.error('[confirm-payment] Database error:', error);
+      return errorResponse('Failed to complete order', 500);
     }
 
     console.log('[confirm-payment] Order completed', { orderId, txHash });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('[orders/confirm-payment] Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
+    return successResponse({ success: true });
+}, {
+  rateLimit: {
+    type: 'sensitive',
+    getKey: (req) => createRateLimitKey(req, undefined, 'confirm-payment'),
+  },
+});
