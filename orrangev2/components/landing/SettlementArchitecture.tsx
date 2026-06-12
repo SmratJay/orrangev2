@@ -150,49 +150,6 @@ export function SettlementArchitecture() {
           ))}
         </div>
 
-        {/* Bottom visualization */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mt-20 p-8 rounded-3xl border border-white/5 bg-white/[0.01]"
-        >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div 
-                    key={i} 
-                    className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500/30 to-orange-600/30 border-2 border-black flex items-center justify-center"
-                  >
-                    <span className="text-xs font-mono text-orange-300">M{i}</span>
-                  </div>
-                ))}
-              </div>
-              <div>
-                <p className="text-white font-medium">48+ Active Merchants</p>
-                <p className="text-white/40 text-sm">Providing liquidity across India</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-8 text-center">
-              <div>
-                <p className="text-2xl font-bold text-white font-mono">12</p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Cities</p>
-              </div>
-              <div className="w-px h-8 bg-white/10" />
-              <div>
-                <p className="text-2xl font-bold text-white font-mono">24/7</p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Uptime</p>
-              </div>
-              <div className="w-px h-8 bg-white/10" />
-              <div>
-                <p className="text-2xl font-bold text-white font-mono">&lt;2m</p>
-                <p className="text-xs text-white/40 uppercase tracking-wider">Avg Time</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </section>
   );
