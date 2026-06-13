@@ -55,7 +55,7 @@ export function LandingHeader() {
                 <MagneticButton
                   asChild
                   size="sm"
-                  className="text-black font-medium"
+                  className="text-black font-medium px-4 py-2"
                   style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C38)' }}
                 >
                   <Link href="/auth/signup">Get Access</Link>

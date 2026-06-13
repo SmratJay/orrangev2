@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Variants } from 'motion/react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,49 @@ const PARTNERS = [
   { name: 'Web3', abbr: 'WEB3' },
   { name: 'Privy', abbr: 'PRIVY' },
 ];
+
+// Glitch text component
+function GlitchText({ text, className = '' }: { text: string; className?: string }) {
+  const [displayText, setDisplayText] = useState('');
+  const [isGlitching, setIsGlitching] = useState(true);
+  const chars = '!<>-_\\/[]{}—=+*^?#________';
+  
+  useEffect(() => {
+    let iteration = 0;
+    const maxIterations = text.length * 3;
+    
+    const interval = setInterval(() => {
+      setDisplayText(
+        text
+          .split('')
+          .map((char, index) => {
+            if (char === ' ') return ' ';
+            if (index < iteration / 3) {
+              return text[index];
+            }
+            return chars[Math.floor(Math.random() * chars.length)];
+          })
+          .join('')
+      );
+      
+      iteration += 1;
+      
+      if (iteration >= maxIterations) {
+        setDisplayText(text);
+        setIsGlitching(false);
+        clearInterval(interval);
+      }
+    }, 30);
+    
+    return () => clearInterval(interval);
+  }, [text]);
+  
+  return (
+    <span className={`font-mono ${isGlitching ? 'text-orange-400' : 'text-orange-400/90'} ${className}`}>
+      {displayText || text.split('').map(() => chars[Math.floor(Math.random() * chars.length)]).join('')}
+    </span>
+  );
+}
 
 // Magnetic button for hero
 function MagneticButton({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
@@ -89,26 +132,27 @@ export default function HeroSection() {
         <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-32 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 lg:pt-40">
           {/* Left - Text */}
           <div className="relative mx-auto max-w-xl lg:mx-0">
-            {/* Location badge */}
+            {/* Glitch badge */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
               className="mb-6"
             >
-              <span className="font-mono text-xs text-orange-400/70">
-                Mumbai, India — Live on Sepolia Testnet
-              </span>
+              <GlitchText 
+                text="Access liquidity instantly." 
+                className="text-xs font-semibold tracking-wide"
+              />
             </motion.div>
 
-            {/* Typography - similar to old design but enhanced */}
+            {/* Typography - Modern rails for modern money */}
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="text-5xl md:text-6xl lg:text-6xl font-bold leading-tight text-white tracking-tight"
             >
-              Convert USDC
+              Modern rails
             </motion.h1>
             <motion.h1
               initial={{ opacity: 0, y: 30 }}
@@ -121,16 +165,16 @@ export default function HeroSection() {
                 WebkitTextFillColor: 'transparent'
               }}
             >
-              to INR instantly.
+              for modern money.
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              className="mt-6 max-w-md text-base leading-relaxed text-white/40"
+              className="mt-6 max-w-md text-base leading-relaxed text-white/70"
             >
-              Peer-to-peer crypto settlement. No banks, no friction. Connect your wallet, find a merchant, settle in minutes.
+              Some things were never meant to stand still. Money is one of them.
             </motion.p>
 
             {/* CTA Buttons */}
