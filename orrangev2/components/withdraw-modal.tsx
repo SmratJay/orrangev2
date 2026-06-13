@@ -131,24 +131,25 @@ export function WithdrawModal({ isOpen, onClose, walletAddress }: WithdrawModalP
       
       setTxHash(tx.hash);
       
-      // Wait for confirmation (but don't block UI)
-      tx.wait().then(() => {
-        setStatus('success');
-        // Refresh balance
-        usdcContract.balanceOf(embeddedWallet.address).then((raw: any) => {
-          setBalance(ethers.formatUnits(raw, 6));
-        });
-      }).catch((err: any) => {
-        console.error('Transaction failed:', err);
-        setStatus('error');
-        setErrorMessage('Transaction failed. Please try again.');
-      });
+      // Wait for confirmation - BLOCK UI until confirmed
+      await tx.wait();
+      
+      // Success - only now release the button
+      setStatus('success');
+      setLoading(false);
+      
+      // Refresh balance
+      try {
+        const raw = await usdcContract.balanceOf(embeddedWallet.address);
+        setBalance(ethers.formatUnits(raw, 6));
+      } catch (e) {
+        console.error('Failed to refresh balance:', e);
+      }
 
     } catch (err: any) {
       console.error('Withdrawal error:', err);
       setStatus('error');
-      setErrorMessage(err.message || 'Failed to execute withdrawal');
-    } finally {
+      setErrorMessage(err.message || 'Transaction failed. Please try again.');
       setLoading(false);
     }
   };
@@ -271,7 +272,7 @@ export function WithdrawModal({ isOpen, onClose, walletAddress }: WithdrawModalP
                     <button
                       onClick={handleMaxAmount}
                       disabled={status === 'loading'}
-                      className="text-xs px-2 py-1 rounded bg-white/10 text-orange-400 hover:bg-white/15 transition disabled:opacity-50"
+                      className="text-xs px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition disabled:opacity-50 border border-orange-500/30"
                     >
                       MAX
                     </button>

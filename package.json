@@ -4,6 +4,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "@upstash/redis": "^1.38.0",
+    "ethers": "^6.16.0",
     "rate-limiter-flexible": "^11.2.0"
   }
 }
