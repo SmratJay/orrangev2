@@ -1,14 +1,28 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { usePrivy, useWallets, getAccessToken } from '@privy-io/react-auth';
 import { encodeFunctionData, parseUnits } from 'viem';
-import { CheckCircle2, Clock, AlertCircle, Loader2, Copy, ExternalLink, Flag } from 'lucide-react';
+import { 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle, 
+  Loader2, 
+  Copy, 
+  ExternalLink, 
+  Flag, 
+  ArrowLeft, 
+  Wallet, 
+  IndianRupee, 
+  RefreshCw,
+  Shield,
+  Zap,
+  Users
+} from 'lucide-react';
 import { FileDispute } from '@/components/dispute/file-dispute';
 import type { OrderStatus } from '@/lib/orders/status';
 
@@ -216,29 +230,63 @@ export default function UserOrderPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div
+            animate={{ x: [0, 100, 0], y: [0, -50, 0] }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#FF6B00]/5 rounded-full blur-3xl"
+          />
+        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6B00]/30 to-[#FF8C38]/20 flex items-center justify-center border border-[#FF6B00]/30">
+            <Loader2 className="w-8 h-8 text-[#FF6B00] animate-spin" />
+          </div>
+        </motion.div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-500">
-              <AlertCircle className="w-5 h-5" />
-              Error
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => router.push('/dashboard')}>
-              Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden p-4">
+        {/* Animated background */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div
+            animate={{ x: [0, -100, 0], y: [0, 50, 0] }}
+            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+            className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"
+          />
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 w-full max-w-md"
+        >
+          <div className="glass-card rounded-2xl p-8 border border-red-500/30 bg-gradient-to-br from-black/80 to-black/60 backdrop-blur-xl">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500/30 to-red-400/20 flex items-center justify-center mx-auto border border-red-500/30">
+                <AlertCircle className="w-8 h-8 text-red-400" />
+              </div>
+              <h2 className="text-xl font-bold text-white">Error</h2>
+              <p className="text-white/60">{error}</p>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push('/dashboard')}
+                className="w-full py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Dashboard
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -252,223 +300,457 @@ export default function UserOrderPage() {
   const isExpired = order.status === 'expired';
 
   const merchantUpi = order.custom_upi_id || merchant?.upi_id;
+  const steps = order.type === 'offramp' ? OFFRAMP_STEPS : ONRAMP_STEPS;
+
+  const getStatusColor = (status: OrderStatus) => {
+    switch (status) {
+      case 'completed':
+        return 'text-green-400 border-green-500/30 bg-green-500/10';
+      case 'cancelled':
+      case 'expired':
+        return 'text-red-400 border-red-500/30 bg-red-500/10';
+      case 'pending':
+        return 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10';
+      default:
+        return 'text-[#FF8C38] border-[#FF6B00]/30 bg-[#FF6B00]/10';
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (order.status) {
+      case 'completed':
+        return <CheckCircle2 className="w-5 h-5 text-green-400" />;
+      case 'cancelled':
+      case 'expired':
+        return <AlertCircle className="w-5 h-5 text-red-400" />;
+      case 'pending':
+        return <Clock className="w-5 h-5 text-yellow-400 animate-pulse" />;
+      default:
+        return <Zap className="w-5 h-5 text-[#FF8C38]" />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{ x: [0, 100, 0], y: [0, -50, 0] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute top-0 left-0 w-96 h-96 bg-[#FF6B00]/5 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{ x: [0, -100, 0], y: [0, 50, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-0 right-0 w-64 h-64 bg-[#FF8C38]/5 rounded-full blur-3xl"
+        />
+      </div>
+
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/50 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary">Order #{orderId.slice(0, 8)}</h1>
-          <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 text-white/60 hover:text-white transition-all"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm font-medium">Back</span>
+          </motion.button>
+
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="w-2 h-2 rounded-full bg-[#FF6B00]"
+            />
+            <span className="text-sm font-medium text-white/80">
+              Order #{orderId.slice(0, 8)}
+            </span>
+          </div>
+
+          <div className="w-16" /> {/* Spacer for centering */}
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-        {/* Order Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Order Summary</CardTitle>
-            <CardDescription>
-              {order.type === 'offramp' 
-                ? `Sell ${order.usdc_amount} USDC for ₹${order.fiat_amount}`
-                : `Buy ${order.usdc_amount} USDC for ₹${order.fiat_amount}`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {order.type === 'offramp' ? 'You Send' : 'You Pay'}
-                </p>
-                <p className="text-2xl font-bold">
-                  {order.type === 'offramp' ? `${order.usdc_amount} USDC` : `₹${order.fiat_amount}`}
-                </p>
+      <main className="relative z-10 max-w-3xl mx-auto px-4 py-8 space-y-6">
+        {/* Order Summary Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card rounded-2xl border border-[#FF6B00]/20 bg-gradient-to-br from-black/90 via-black/80 to-[#FF6B00]/5 backdrop-blur-xl overflow-hidden"
+        >
+          <div className="p-6 space-y-6">
+            {/* Header with status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${getStatusColor(order.status)}`}>
+                  {order.type === 'onramp' ? (
+                    <ArrowDownLeft className="w-6 h-6 text-[#FF8C38]" />
+                  ) : (
+                    <ArrowUpRight className="w-6 h-6 text-green-400" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    {order.type === 'onramp' ? 'On-Ramp Order' : 'Off-Ramp Order'}
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    {getStatusIcon()}
+                    <span className={`text-sm font-medium ${
+                      order.status === 'completed' ? 'text-green-400' :
+                      order.status === 'cancelled' || order.status === 'expired' ? 'text-red-400' :
+                      order.status === 'pending' ? 'text-yellow-400' :
+                      'text-[#FF8C38]'
+                    }`}>
+                      {steps[currentStep]?.label || order.status}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">You Receive</p>
-                <p className="text-2xl font-bold text-green-500">
-                  {order.type === 'offramp' ? `₹${order.fiat_amount}` : `${order.usdc_amount} USDC`}
+              <div className="text-right">
+                <p className="text-xs text-white/40 uppercase tracking-wider">Created</p>
+                <p className="text-sm text-white/60">
+                  {new Date(order.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Status Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Order Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {(order.type === 'offramp' ? OFFRAMP_STEPS : ONRAMP_STEPS).map((step: { status: OrderStatus; label: string; description: string }, index: number) => {
+            {/* Exchange amount display */}
+            <div className="grid grid-cols-2 gap-4">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="rounded-2xl border border-white/10 bg-black/40 p-5"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <IndianRupee className="w-4 h-4 text-white/40" />
+                  <span className="text-xs text-white/40 uppercase tracking-wider">You Pay</span>
+                </div>
+                <p className="text-3xl font-bold text-white">
+                  ₹{order.fiat_amount.toLocaleString()}
+                </p>
+              </motion.div>
+
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="rounded-2xl border border-[#FF6B00]/30 bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C38]/5 p-5"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4 text-[#FF8C38]" />
+                  <span className="text-xs text-[#FF8C38] uppercase tracking-wider">You Receive</span>
+                </div>
+                <p className="text-3xl font-bold text-white">
+                  {order.usdc_amount} <span className="text-lg text-[#FF8C38]">USDC</span>
+                </p>
+              </motion.div>
+            </div>
+
+            {/* Rate info */}
+            <div className="flex items-center justify-center gap-4 text-xs text-white/40">
+              <span className="flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" />
+                Rate: ₹90/USDC
+              </span>
+              <span className="w-1 h-1 rounded-full bg-white/20" />
+              <span className="flex items-center gap-1">
+                <Shield className="w-3 h-3 text-green-400" />
+                Escrow Protected
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Progress Timeline */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl p-6"
+        >
+          <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+              className="w-2 h-2 rounded-full bg-[#FF6B00]"
+            />
+            Order Progress
+          </h3>
+
+          <div className="relative">
+            {/* Progress line */}
+            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-white/10">
+              <motion.div
+                className="absolute top-0 left-0 w-full bg-gradient-to-b from-[#FF6B00] to-[#FF8C38]"
+                initial={{ height: "0%" }}
+                animate={{ height: `${(currentStep / (steps.length - 1)) * 100}%` }}
+                transition={{ type: "spring", stiffness: 50, damping: 20 }}
+              />
+            </div>
+
+            <div className="space-y-6">
+              {steps.map((step, index) => {
                 const isActive = index === currentStep;
                 const isComplete = index < currentStep || isCompleted;
                 const isPending = index > currentStep;
 
                 return (
-                  <div key={step.status} className="flex items-start gap-4">
+                  <motion.div
+                    key={step.status}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 + index * 0.1 }}
+                    className="relative flex items-start gap-4 pl-12"
+                  >
+                    {/* Step indicator */}
                     <div className={`
-                      w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                      ${isComplete ? 'bg-green-500 text-white' : ''}
-                      ${isActive ? 'bg-primary text-white animate-pulse' : ''}
-                      ${isPending ? 'bg-muted text-muted-foreground' : ''}
+                      absolute left-0 w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10
+                      ${isComplete ? 'bg-green-500/20 border-green-500 text-green-400' : ''}
+                      ${isActive ? 'bg-[#FF6B00]/20 border-[#FF6B00] text-[#FF8C38] shadow-lg shadow-[#FF6B00]/20' : ''}
+                      ${isPending ? 'bg-black/50 border-white/20 text-white/40' : ''}
                     `}>
                       {isComplete ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : isActive ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
-                        <span className="text-sm">{index + 1}</span>
+                        <span className="text-sm font-medium">{index + 1}</span>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <p className={`font-medium ${isActive ? 'text-primary' : ''}`}>
+
+                    {/* Step content */}
+                    <div className={`
+                      flex-1 p-4 rounded-xl border transition-all duration-300
+                      ${isActive ? 'bg-[#FF6B00]/5 border-[#FF6B00]/20' : ''}
+                      ${isComplete ? 'bg-green-500/5 border-green-500/20' : ''}
+                      ${isPending ? 'bg-black/20 border-white/5' : ''}
+                    `}>
+                      <p className={`font-semibold ${
+                        isActive ? 'text-[#FF8C38]' :
+                        isComplete ? 'text-green-400' :
+                        'text-white/60'
+                      }`}>
                         {step.label}
                       </p>
-                      <p className="text-sm text-muted-foreground">{step.description}</p>
+                      <p className={`text-sm mt-1 ${
+                        isActive ? 'text-white/80' :
+                        isComplete ? 'text-white/60' :
+                        'text-white/40'
+                      }`}>
+                        {step.description}
+                      </p>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </motion.div>
 
         {/* Action Area - depends on status */}
         
         {/* Status: Merchant Accepted - Show UPI payment form (onramp only) */}
         {order.type === 'onramp' && order.status === 'accepted' && merchant && (
-          <Card className="border-primary">
-            <CardHeader>
-              <CardTitle className="text-primary">Pay via UPI</CardTitle>
-              <CardDescription>
-                Send ₹{order.fiat_amount} to the merchant's UPI ID
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Merchant UPI */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-[#FF6B00]/30 bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C38]/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-[#FF6B00]/20 border border-[#FF6B00]/30 flex items-center justify-center">
+                <IndianRupee className="w-6 h-6 text-[#FF8C38]" />
+              </div>
               <div>
-                <Label>Merchant UPI ID</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="flex-1 p-3 bg-muted rounded-lg font-mono text-lg">
+                <h3 className="text-lg font-semibold text-white">Pay via UPI</h3>
+                <p className="text-sm text-white/60">Send ₹{order.fiat_amount} to complete your order</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Merchant UPI */}
+              <div className="p-4 rounded-xl border border-white/10 bg-black/40">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Merchant UPI ID</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 font-mono text-lg text-white">
                     {merchantUpi}
                   </div>
-                  <Button variant="outline" size="icon" onClick={copyUpiId}>
-                    {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </Button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={copyUpiId}
+                    className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                  >
+                    {copied ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5 text-white/60" />}
+                  </motion.button>
                 </div>
               </div>
 
               {/* Payment Reference Input */}
               <div>
-                <Label htmlFor="upi-ref">UPI Transaction ID</Label>
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">UPI Transaction Reference</p>
                 <Input
-                  id="upi-ref"
-                  placeholder="Enter your UPI transaction ID after payment"
+                  placeholder="Enter UPI transaction ID after payment"
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
-                  className="mt-1"
+                  className="bg-black/40 border-white/10 text-white placeholder:text-white/30 rounded-xl h-12"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Find this in your UPI app after completing payment
+                <p className="text-xs text-white/40 mt-2">
+                  Find this 12-digit reference in your UPI app after completing payment
                 </p>
               </div>
 
-              <Button 
-                className="w-full" 
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleSubmitPayment}
                 disabled={actionLoading || !paymentReference.trim()}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-[#FF6B00] to-[#FF8C38] text-white font-semibold text-sm shadow-lg shadow-[#FF6B00]/25 hover:shadow-[#FF6B00]/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 overflow-hidden relative"
               >
-                {actionLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "I've Paid - Submit Reference"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                {/* Button shine effect */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                />
+                <span className="relative z-10 flex items-center gap-2">
+                  {actionLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      I've Paid - Submit Reference
+                    </>
+                  )}
+                </span>
+              </motion.button>
+            </div>
+          </motion.div>
         )}
 
         {/* Status: Payment Sent - Waiting for merchant */}
         {order.status === 'payment_sent' && (
-          <Card className="border-yellow-500">
-            <CardHeader>
-              <CardTitle className="text-yellow-500 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Waiting for Merchant
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Your payment reference <strong>{order.payment_reference}</strong> has been submitted.
-                The merchant is verifying your payment.
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-yellow-500/30 bg-yellow-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center">
+                <Clock className="w-7 h-7 text-yellow-400 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-400">Verifying Payment</h3>
+                <p className="text-sm text-white/60 mt-1">
+                  Reference <code className="bg-white/10 px-2 py-0.5 rounded text-yellow-400">{order.payment_reference}</code>
+                </p>
+                <p className="text-sm text-white/40 mt-2">Merchant is confirming your UPI payment...</p>
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* Status: Payment Confirmed - Transferring USDC */}
         {(order.status === 'payment_confirmed' || order.status === 'usdc_transferred') && (
-          <Card className="border-blue-500">
-            <CardHeader>
-              <CardTitle className="text-blue-500 flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Transferring USDC
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Payment confirmed! USDC is being transferred to your wallet...
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-blue-500/30 bg-blue-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                <Loader2 className="w-7 h-7 text-blue-400 animate-spin" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-400">Transferring USDC</h3>
+                <p className="text-sm text-white/60 mt-1">Payment confirmed!</p>
+                <p className="text-sm text-white/40 mt-2">USDC is being sent to your wallet on Sepolia...</p>
+              </div>
+            </div>
+            {order.tx_hash && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Transaction Hash</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-3 bg-black/40 rounded-lg text-sm text-white/80 font-mono break-all">
+                    {order.tx_hash}
+                  </code>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.tx_hash}`, '_blank')}
+                    className="p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                  >
+                    <ExternalLink className="w-5 h-5 text-white/60" />
+                  </motion.button>
+                </div>
+              </div>
+            )}
+          </motion.div>
         )}
 
         {/* Status: Completed */}
         {isCompleted && (
-          <Card className="border-green-500 bg-green-500/10">
-            <CardHeader>
-              <CardTitle className="text-green-500 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
-                Order Complete!
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                {order.type === 'offramp'
-                  ? `₹${order.fiat_amount} has been sent to your UPI account.`
-                  : `${order.usdc_amount} USDC has been transferred to your wallet.`}
-              </p>
-              
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, type: "spring" }}
+            className="glass-card rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-green-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="text-center space-y-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+                className="w-20 h-20 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center mx-auto"
+              >
+                <CheckCircle2 className="w-10 h-10 text-green-400" />
+              </motion.div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-white">Order Complete!</h3>
+                <p className="text-white/60 mt-2">
+                  {order.type === 'offramp'
+                    ? `₹${order.fiat_amount} sent to your UPI account`
+                    : `${order.usdc_amount} USDC transferred to your wallet`}
+                </p>
+              </div>
+
               {order.tx_hash && (
-                <div>
-                  <Label>Transaction Hash</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="flex-1 p-2 bg-muted rounded text-sm break-all">
+                <div className="p-4 rounded-xl border border-white/10 bg-black/40">
+                  <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Transaction Hash</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 p-2 bg-black/40 rounded text-sm text-white/80 font-mono break-all">
                       {order.tx_hash}
                     </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.tx_hash}`, '_blank')}
+                      className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
+                      <ExternalLink className="w-4 h-4 text-white/60" />
+                    </motion.button>
                   </div>
                 </div>
               )}
 
-              <Button className="w-full" onClick={() => router.push('/dashboard')}>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push('/dashboard')}
+                className="w-full py-4 rounded-xl bg-white/10 text-white font-semibold hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-5 h-5" />
                 Back to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
+              </motion.button>
+            </div>
+          </motion.div>
         )}
 
         {/* OFF-RAMP: Status Accepted - Send USDC client-side */}
@@ -656,19 +938,34 @@ export default function UserOrderPage() {
 
         {/* ON-RAMP: Status Pending - Waiting for merchant to accept */}
         {order.status === 'pending' && (
-          <Card className="border-yellow-500">
-            <CardHeader>
-              <CardTitle className="text-yellow-500 flex items-center gap-2">
-                <Clock className="w-5 h-5 animate-pulse" />
-                Waiting for Merchant
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Your order is waiting for a merchant to accept. This usually takes less than a minute.
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-yellow-500/30 bg-yellow-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center">
+                <Loader2 className="w-7 h-7 text-yellow-400 animate-spin" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-400">Finding a Merchant</h3>
+                <p className="text-sm text-white/60 mt-1">Your order is being matched...</p>
+                <p className="text-sm text-white/40 mt-2">This usually takes less than a minute</p>
+              </div>
+            </div>
+            {/* Animated progress dots */}
+            <div className="flex justify-center gap-1 mt-4">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-yellow-400"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                />
+              ))}
+            </div>
+          </motion.div>
         )}
 
         {/* Dispute Filing - available for active non-pending orders */}
