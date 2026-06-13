@@ -92,6 +92,11 @@ function DashboardContent() {
     }
   }, [view])
 
+  // Fetch orders on mount for Recent Activity section
+  useEffect(() => {
+    fetchOrders()
+  }, [])
+
   useEffect(() => {
     const checkUserType = async () => {
       try {
