@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       status: order.status,
       created_at: order.created_at,
       completed_at: order.completed_at,
-      merchant_upi: order.custom_upi_id || order.merchants?.upi_id,
+      merchant_upi: order.custom_upi_id || ((order.merchants as any)?.upi_id || (Array.isArray(order.merchants) ? (order.merchants[0] as any)?.upi_id : undefined)),
       icon: 'exchange'
     }));
 
