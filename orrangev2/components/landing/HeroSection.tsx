@@ -68,24 +68,24 @@ export default function HeroSection() {
     <main className="overflow-x-hidden">
       {/* ── Hero ────────────────────────────── */}
       <section className="relative min-h-screen">
-        {/* Full-screen animated dither background - v0 style with orange theme */}
-        <div className="fixed inset-0 w-full h-full -z-10">
+        {/* Animated dither background - visible and dynamic */}
+        <div className="absolute inset-0 z-0">
           <Dither
-            waveColor={[0.8, 0.35, 0.0]}
+            waveColor={[1.0, 0.42, 0.0]}
             waveSpeed={0.05}
             waveFrequency={3}
-            waveAmplitude={0.3}
+            waveAmplitude={0.35}
             colorNum={4}
             pixelSize={2}
             enableMouseInteraction
-            mouseRadius={0.3}
+            mouseRadius={0.5}
             className="w-full h-full"
           />
         </div>
-        {/* Dark overlay for content readability */}
-        <div className="absolute inset-0 bg-black/50 z-0" />
-        {/* Gradient fade at bottom for seamless transition */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-64 z-0"
+        {/* Subtle dark overlay for text readability */}
+        <div className="absolute inset-0 bg-black/30 z-0" />
+        {/* Gradient fade at bottom */}
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 z-0"
           style={{ background: 'linear-gradient(to bottom, transparent, black)' }} />
 
         <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-32 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 lg:pt-40">
