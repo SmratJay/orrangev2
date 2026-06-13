@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { usePrivy, useWallets, getAccessToken } from '@privy-io/react-auth';
 import { encodeFunctionData, parseUnits } from 'viem';
 import { 
@@ -16,6 +18,8 @@ import {
   ExternalLink, 
   Flag, 
   ArrowLeft, 
+  ArrowDownLeft,
+  ArrowUpRight,
   Wallet, 
   IndianRupee, 
   RefreshCw,
