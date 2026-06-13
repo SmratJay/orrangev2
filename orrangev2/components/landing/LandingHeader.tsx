@@ -38,7 +38,7 @@ export function LandingHeader() {
             {/* Nav items */}
             <div className="in-data-[state=active]:block mb-6 hidden w-full items-center justify-end gap-6 rounded-2xl border border-white/8 bg-black/90 p-6 shadow-2xl lg:m-0 lg:flex lg:w-fit lg:gap-8 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none">
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:gap-6 md:w-fit">
-                {['Architecture', 'Security', 'Network'].map(item => (
+                {['Architecture'].map(item => (
                   <a 
                     key={item} 
                     href={`#${item.toLowerCase()}`} 
