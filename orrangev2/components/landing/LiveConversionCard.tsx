@@ -12,7 +12,6 @@ interface Order {
 const SAMPLE_ORDERS: Order[] = [
   { amount: 50, delay: 3000 },
   { amount: 125, delay: 4000 },
-  { amount: 75, delay: 3500 },
   { amount: 200, delay: 4500 },
   { amount: 30, delay: 3000 },
 ];
