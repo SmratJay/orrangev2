@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     // Fetch all activity types in parallel
     const [ordersResult, withdrawalsResult, depositsResult] = await Promise.all([
-      // Orders (conversions)
+      // Orders (conversions) - fetch all non-pending statuses
       supabase
         .from('orders')
         .select(`
@@ -35,13 +35,14 @@ export async function GET(request: Request) {
           status,
           created_at,
           completed_at,
-          merchants!orders_merchant_id_fkey (upi_id),
           fiat_amount,
           exchange_rate,
-          custom_upi_id
+          custom_upi_id,
+          merchant_id,
+          merchants (upi_id)
         `)
         .eq('user_id', user.id)
-        .eq('status', 'completed')
+        .in('status', ['accepted', 'payment_received', 'payment_confirmed', 'processing', 'usdc_transferred', 'completed'])
         .order('created_at', { ascending: false })
         .limit(10),
 
@@ -62,19 +63,39 @@ export async function GET(request: Request) {
         .limit(10)
     ]);
 
+    // Debug logging
+    console.log('[wallet-activity] Orders found:', ordersResult.data?.length || 0);
+    console.log('[wallet-activity] Withdrawals found:', withdrawalsResult.data?.length || 0);
+    console.log('[wallet-activity] Deposits found:', depositsResult.data?.length || 0);
+    if (ordersResult.error) console.error('[wallet-activity] Orders error:', ordersResult.error);
+    if (withdrawalsResult.error) console.error('[wallet-activity] Withdrawals error:', withdrawalsResult.error);
+    if (depositsResult.error) console.error('[wallet-activity] Deposits error:', depositsResult.error);
+
     // Transform orders
-    const orderActivities = (ordersResult.data || []).map(order => ({
-      id: order.id,
-      type: 'conversion' as const,
-      title: 'USDC to INR Conversion',
-      description: `Converted ${order.amount} USDC to ₹${order.fiat_amount || Math.round(order.amount * (order.exchange_rate || 90))}`,
-      amount: order.amount,
-      status: order.status,
-      created_at: order.created_at,
-      completed_at: order.completed_at,
-      merchant_upi: order.custom_upi_id || ((order.merchants as any)?.upi_id || (Array.isArray(order.merchants) ? (order.merchants[0] as any)?.upi_id : undefined)),
-      icon: 'exchange'
-    }));
+    const orderActivities = (ordersResult.data || []).map(order => {
+      // Handle merchants as array or object
+      let merchantUpi = order.custom_upi_id;
+      if (!merchantUpi && order.merchants) {
+        if (Array.isArray(order.merchants)) {
+          merchantUpi = order.merchants[0]?.upi_id;
+        } else {
+          merchantUpi = (order.merchants as any)?.upi_id;
+        }
+      }
+      
+      return {
+        id: order.id,
+        type: 'conversion' as const,
+        title: order.fiat_amount ? 'USDC to INR Conversion' : 'USDC Conversion',
+        description: `Converted ${order.amount} USDC to ₹${order.fiat_amount || Math.round(order.amount * (order.exchange_rate || 90))}`,
+        amount: order.amount,
+        status: order.status,
+        created_at: order.created_at,
+        completed_at: order.completed_at,
+        merchant_upi: merchantUpi,
+        icon: 'exchange'
+      };
+    });
 
     // Transform withdrawals
     const withdrawalActivities = (withdrawalsResult.data || []).map(w => ({
