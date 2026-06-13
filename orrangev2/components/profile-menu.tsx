@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
-import { LogOut, User, Shield, Copy, ExternalLink, Menu } from 'lucide-react';
+import { LogOut, User, Shield, Copy, ExternalLink, Menu, ArrowUpRight } from 'lucide-react';
 import { ProfileSettings } from '@/components/profile-settings';
+import { WithdrawModal } from '@/components/withdraw-modal';
 
 interface ProfileMenuProps {
   fullName?: string | null;
@@ -17,6 +18,7 @@ export function ProfileMenu({ fullName: initialName, walletAddress, userType = '
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const [displayName, setDisplayName] = useState(initialName || '');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -113,6 +115,14 @@ export function ProfileMenu({ fullName: initialName, walletAddress, userType = '
               <span>Profile Settings</span>
             </button>
 
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-orange-400 hover:bg-orange-500/10 transition text-left"
+              onClick={() => { setOpen(false); setShowWithdraw(true); }}
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              <span>Withdraw</span>
+            </button>
+
             {userType === 'admin' && (
               <button
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition text-left"
@@ -143,6 +153,12 @@ export function ProfileMenu({ fullName: initialName, walletAddress, userType = '
           onNameChange={(n) => { setDisplayName(n); onNameChange?.(n); }}
         />
       )}
+
+      <WithdrawModal
+        isOpen={showWithdraw}
+        onClose={() => setShowWithdraw(false)}
+        walletAddress={walletAddress}
+      />
     </div>
   );
 }
