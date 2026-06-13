@@ -63,63 +63,23 @@ float cnoise(vec2 P) {
   return 2.3 * mix(n_x.x, n_x.y, fade_xy.y);
 }
 
-// Enhanced pattern with random cuts, darkness, and visible wave dynamics
-float hash(float n) { return fract(sin(n) * 43758.5453); }
-
-float pattern(vec2 p) {
-  // Multiple flowing layers with different directions for visible dynamics
-  vec2 flow1 = p - vec2(time * waveSpeed, time * waveSpeed * 0.3);
-  vec2 flow2 = p + vec2(time * waveSpeed * 0.7, -time * waveSpeed * 0.5);
-  vec2 flow3 = p - vec2(time * waveSpeed * 0.2, -time * waveSpeed * 0.8);
-  
-  // Layer 1: Main flowing noise
-  float value1 = 0.0;
+// v0-style clean FBM pattern - elegant flowing waves
+const int OCTAVES = 4;
+float fbm(vec2 p) {
+  float value = 0.0;
   float amp = 1.0;
   float freq = waveFrequency;
-  for (int i = 0; i < 4; i++) {
-    value1 += amp * abs(cnoise(flow1));
-    flow1 *= freq;
+  for (int i = 0; i < OCTAVES; i++) {
+    value += amp * abs(cnoise(p));
+    p *= freq;
     amp *= waveAmplitude;
   }
-  
-  // Layer 2: Cross-flowing noise (creates visible interference patterns)
-  float value2 = 0.0;
-  amp = 1.0;
-  freq = waveFrequency;
-  for (int i = 0; i < 4; i++) {
-    value2 += amp * abs(cnoise(flow2));
-    flow2 *= freq;
-    amp *= waveAmplitude;
-  }
-  
-  // Layer 3: Slow undulating base
-  float value3 = 0.0;
-  amp = 1.0;
-  freq = waveFrequency * 0.5;
-  for (int i = 0; i < 4; i++) {
-    value3 += amp * abs(cnoise(flow3));
-    flow3 *= freq;
-    amp *= waveAmplitude;
-  }
-  
-  // Combine with interference
-  float combined = value1 * 0.5 + value2 * 0.35 + value3 * 0.25;
-  
-  // Add random cuts / sharp edges
-  float cutNoise = hash(floor(p.x * 20.0) + floor(p.y * 20.0) * 57.0 + time);
-  float cut = smoothstep(0.92, 0.95, cutNoise) * 0.3; // Occasional sharp bright cuts
-  
-  // Random dark cuts
-  float darkCut = smoothstep(0.88, 0.93, hash(floor(p.x * 15.0) + floor(p.y * 15.0) * 37.0 - time * 0.5));
-  
-  combined = combined + cut - darkCut * 0.4;
-  
-  // Add vertical scanline-like randomness
-  float scanline = sin(p.y * 100.0 + time * 2.0) * 0.5 + 0.5;
-  float scanRandom = hash(floor(p.y * 50.0) + time);
-  if (scanRandom > 0.97) combined *= 0.3; // Random dark scanlines
-  
-  return combined;
+  return value;
+}
+
+float pattern(vec2 p) {
+  vec2 p2 = p - time * waveSpeed;
+  return fbm(p + fbm(p2)); 
 }
 
 void main() {
