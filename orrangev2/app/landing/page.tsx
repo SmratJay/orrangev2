@@ -1,7 +1,6 @@
 ﻿import type { Metadata } from 'next';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import HeroSection from '@/components/landing/HeroSection';
-import { LiveStatsSection } from '@/components/landing/LiveStatsSection';
 import { SettlementArchitecture } from '@/components/landing/SettlementArchitecture';
 import { ComparisonSection } from '@/components/landing/ComparisonSection';
 import CallToActionSection from '@/components/landing/CallToActionSection';
@@ -17,7 +16,6 @@ export default function LandingPage() {
     <div className="min-h-screen bg-black text-white">
       <LandingHeader />
       <HeroSection />
-      <LiveStatsSection />
       <SettlementArchitecture />
       <ComparisonSection />
       <CallToActionSection />
