@@ -1,102 +1,133 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, DollarSign, IndianRupee, CheckCircle2, Loader2 } from 'lucide-react';
 
 interface Order {
-  id: string;
   amount: number;
-  isTyping: boolean;
-  status: 'typing' | 'converting' | 'matched' | 'completed';
+  delay: number;
 }
 
-const SAMPLE_ORDERS = [
-  { amount: 50, delay: 0 },
+const SAMPLE_ORDERS: Order[] = [
+  { amount: 50, delay: 3000 },
   { amount: 125, delay: 4000 },
-  { amount: 75, delay: 8000 },
-  { amount: 200, delay: 12000 },
-  { amount: 30, delay: 16000 },
+  { amount: 75, delay: 3500 },
+  { amount: 200, delay: 4500 },
+  { amount: 30, delay: 3000 },
 ];
 
 const RATE = 90; // 1 USDC = 90 INR
 
+type Status = 'typing' | 'calculating' | 'ready' | 'matched';
+
 export function LiveConversionCard() {
-  const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
-  const [isOfframp, setIsOfframp] = useState(true); // true = USDC->INR, false = INR->USDC
-  const [displayAmount, setDisplayAmount] = useState('');
+  const [isOfframp, setIsOfframp] = useState(true);
+  const [sendAmount, setSendAmount] = useState('');
+  const [receiveAmount, setReceiveAmount] = useState('');
+  const [status, setStatus] = useState<Status>('typing');
   const [isFlipping, setIsFlipping] = useState(false);
+  
+  const currentOrder = SAMPLE_ORDERS[currentOrderIndex];
+  const targetAmount = currentOrder.amount.toString();
+  
+  // Calculate what should be received
+  const calculateReceive = (amount: number) => {
+    if (isOfframp) {
+      return (amount * RATE).toLocaleString();
+    } else {
+      return Math.floor(amount / RATE).toString();
+    }
+  };
 
-  // Typewriter effect for amount
-  const typeAmount = useCallback((amount: number) => {
-    const str = amount.toString();
-    let i = 0;
-    setDisplayAmount('');
-    
-    const interval = setInterval(() => {
-      if (i <= str.length) {
-        setDisplayAmount(str.slice(0, i));
-        i++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 150);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Cycle through orders
+  // Main animation sequence
   useEffect(() => {
-    const runOrder = async () => {
-      const order = SAMPLE_ORDERS[currentOrderIndex];
+    let isActive = true;
+    
+    const runSequence = async () => {
+      // Reset states
+      setSendAmount('');
+      setReceiveAmount('');
+      setStatus('typing');
       
-      // Start typing
-      typeAmount(order.amount);
+      // Type the send amount
+      const typeInterval = setInterval(() => {
+        if (!isActive) {
+          clearInterval(typeInterval);
+          return;
+        }
+        
+        setSendAmount(prev => {
+          if (prev.length >= targetAmount.length) {
+            clearInterval(typeInterval);
+            return targetAmount;
+          }
+          return targetAmount.slice(0, prev.length + 1);
+        });
+      }, 120);
       
-      // Wait for typing + conversion
-      await new Promise(r => setTimeout(r, 2500));
+      // Wait for typing to complete
+      await new Promise(r => setTimeout(r, targetAmount.length * 120 + 200));
       
-      // Show matched state briefly
+      if (!isActive) return;
+      
+      // Small pause, then show calculating
+      setStatus('calculating');
+      await new Promise(r => setTimeout(r, 400));
+      
+      if (!isActive) return;
+      
+      // Spawn the receive amount (no typing, just appears)
+      const finalReceive = calculateReceive(currentOrder.amount);
+      setReceiveAmount(finalReceive);
+      setStatus('ready');
+      
+      // Show matched status briefly
+      await new Promise(r => setTimeout(r, 800));
+      if (!isActive) return;
+      setStatus('matched');
+      
+      // Wait before next order
       await new Promise(r => setTimeout(r, 1500));
+      if (!isActive) return;
       
-      // Flip the card (every 2 orders)
+      // Flip card every 2 orders
       if ((currentOrderIndex + 1) % 2 === 0) {
         setIsFlipping(true);
-        await new Promise(r => setTimeout(r, 600));
-        setIsOfframp(!isOfframp);
+        await new Promise(r => setTimeout(r, 300));
+        if (!isActive) return;
+        setIsOfframp(prev => !prev);
+        await new Promise(r => setTimeout(r, 300));
+        if (!isActive) return;
         setIsFlipping(false);
+        await new Promise(r => setTimeout(r, 200));
       }
       
       // Move to next order
       setCurrentOrderIndex((prev) => (prev + 1) % SAMPLE_ORDERS.length);
     };
+    
+    const timer = setTimeout(runSequence, 500);
+    
+    return () => {
+      isActive = false;
+      clearTimeout(timer);
+    };
+  }, [currentOrderIndex, isOfframp]);
 
-    const timer = setTimeout(runOrder, 500);
-    return () => clearTimeout(timer);
-  }, [currentOrderIndex, isOfframp, typeAmount]);
-
-  const currentAmount = SAMPLE_ORDERS[currentOrderIndex].amount;
-  const convertedAmount = isOfframp 
-    ? currentAmount * RATE 
-    : Math.floor(currentAmount / RATE);
+  const getStatusText = () => {
+    switch (status) {
+      case 'typing': return 'typing...';
+      case 'calculating': return 'calculating...';
+      case 'ready': return 'ready';
+      case 'matched': return 'matched';
+      default: return '';
+    }
+  };
 
   return (
     <div className="relative w-full max-w-md mx-auto">
-      {/* Floating status badge */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="absolute -top-4 -right-4 z-20"
-      >
-        <div className="px-3 py-1.5 rounded-full bg-black/80 border border-orange-500/30 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[10px] font-mono text-orange-400 uppercase tracking-wider">Live</span>
-          </div>
-        </div>
-      </motion.div>
-
       {/* Main Card */}
       <motion.div
         animate={{ 
@@ -137,7 +168,7 @@ export function LiveConversionCard() {
                   </p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                      {displayAmount || '0'}
+                      {sendAmount || '0'}
                     </span>
                     <span className="text-lg text-white/50 font-mono">
                       {isOfframp ? 'USDC' : 'INR'}
@@ -190,14 +221,25 @@ export function LiveConversionCard() {
                     You receive
                   </p>
                   <div className="flex items-baseline gap-1">
-                    <motion.span 
-                      key={convertedAmount}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="text-3xl font-bold text-white font-mono tabular-nums"
-                    >
-                      {convertedAmount.toLocaleString()}
-                    </motion.span>
+                    <AnimatePresence mode="wait">
+                      {receiveAmount && (
+                        <motion.span 
+                          key={`${isOfframp}-${receiveAmount}`}
+                          initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.8, y: -10 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                          className="text-3xl font-bold text-white font-mono tabular-nums"
+                        >
+                          {receiveAmount}
+                        </motion.span>
+                      )}
+                      {!receiveAmount && (
+                        <span className="text-3xl font-bold text-white/20 font-mono tabular-nums">
+                          —
+                        </span>
+                      )}
+                    </AnimatePresence>
                     <span className="text-lg text-white/50 font-mono">
                       {isOfframp ? 'INR' : 'USDC'}
                     </span>
@@ -226,11 +268,12 @@ export function LiveConversionCard() {
               {isOfframp ? 'via UPI · merchant@orrange' : 'via Escrow · instant settlement'}
             </span>
             <motion.span 
-              initial={{ opacity: 0, scale: 0 }}
+              key={status}
+              initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="ml-auto text-[10px] font-mono text-orange-400"
             >
-              {displayAmount.length === currentAmount.toString().length ? 'matched' : 'typing...'}
+              {getStatusText()}
             </motion.span>
           </motion.div>
 
