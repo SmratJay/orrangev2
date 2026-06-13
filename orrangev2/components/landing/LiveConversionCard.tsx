@@ -27,7 +27,6 @@ export function LiveConversionCard() {
   const [sendAmount, setSendAmount] = useState('');
   const [receiveAmount, setReceiveAmount] = useState('');
   const [status, setStatus] = useState<Status>('typing');
-  const [isFlipping, setIsFlipping] = useState(false);
   
   const currentOrder = SAMPLE_ORDERS[currentOrderIndex];
   const targetAmount = currentOrder.amount.toString();
@@ -92,16 +91,10 @@ export function LiveConversionCard() {
       await new Promise(r => setTimeout(r, 1500));
       if (!isActive) return;
       
-      // Flip card every 2 orders
+      // Switch direction every 2 orders (no flip animation)
       if ((currentOrderIndex + 1) % 2 === 0) {
-        setIsFlipping(true);
-        await new Promise(r => setTimeout(r, 300));
-        if (!isActive) return;
         setIsOfframp(prev => !prev);
         await new Promise(r => setTimeout(r, 300));
-        if (!isActive) return;
-        setIsFlipping(false);
-        await new Promise(r => setTimeout(r, 200));
       }
       
       // Move to next order
@@ -130,12 +123,6 @@ export function LiveConversionCard() {
     <div className="relative w-full max-w-md mx-auto">
       {/* Main Card */}
       <motion.div
-        animate={{ 
-          rotateY: isFlipping ? 180 : 0,
-          scale: isFlipping ? 0.95 : 1 
-        }}
-        transition={{ duration: 0.6, ease: "easeInOut" }}
-        style={{ transformStyle: 'preserve-3d' }}
         className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl"
       >
         {/* Card Header */}
