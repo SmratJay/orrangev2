@@ -2,7 +2,6 @@
 
 import React from 'react';
 import type { Variants } from 'motion/react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { InfiniteSlider } from '@/components/ui/infinite-slider';
@@ -10,8 +9,7 @@ import { AnimatedGroup } from '@/components/motion-primitives/animated-group';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { LiveConversionCard } from '@/components/landing/LiveConversionCard';
-
-const Dither = dynamic(() => import('@/components/landing/Dither'), { ssr: false });
+import Dither from '@/components/landing/Dither';
 
 const itemVariant: Variants = {
   hidden: { opacity: 0, filter: 'blur(12px)', y: 12 },
