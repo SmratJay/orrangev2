@@ -31,7 +31,8 @@ export async function GET(request: Request) {
         .from('orders')
         .select(`
           id,
-          amount,
+          type,
+          usdc_amount,
           status,
           created_at,
           completed_at,
@@ -39,10 +40,10 @@ export async function GET(request: Request) {
           exchange_rate,
           custom_upi_id,
           merchant_id,
-          merchants (upi_id)
+          merchants!orders_merchant_id_fkey (upi_id)
         `)
         .eq('user_id', user.id)
-        .in('status', ['accepted', 'payment_received', 'payment_confirmed', 'processing', 'usdc_transferred', 'completed'])
+        .in('status', ['accepted', 'payment_sent', 'payment_confirmed', 'processing', 'usdc_transferred', 'completed'])
         .order('created_at', { ascending: false })
         .limit(10),
 
@@ -83,12 +84,18 @@ export async function GET(request: Request) {
         }
       }
       
+      const orderType = order.type === 'onramp' ? 'On-Ramp' : 'Off-Ramp';
+      const usdcAmount = order.usdc_amount || 0;
+      const fiatAmount = order.fiat_amount || Math.round(usdcAmount * (order.exchange_rate || 90));
+      
       return {
         id: order.id,
         type: 'conversion' as const,
-        title: order.fiat_amount ? 'USDC to INR Conversion' : 'USDC Conversion',
-        description: `Converted ${order.amount} USDC to ₹${order.fiat_amount || Math.round(order.amount * (order.exchange_rate || 90))}`,
-        amount: order.amount,
+        title: `${orderType} Conversion`,
+        description: order.type === 'onramp' 
+          ? `Converted ₹${fiatAmount} to ${usdcAmount} USDC`
+          : `Converted ${usdcAmount} USDC to ₹${fiatAmount}`,
+        amount: usdcAmount,
         status: order.status,
         created_at: order.created_at,
         completed_at: order.completed_at,
