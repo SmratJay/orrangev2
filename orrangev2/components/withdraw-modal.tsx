@@ -146,6 +146,22 @@ export function WithdrawModal({ isOpen, onClose, walletAddress }: WithdrawModalP
         console.error('Failed to refresh balance:', e);
       }
 
+      // Record withdrawal to database
+      try {
+        await fetch('/api/wallet/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: parseFloat(amount),
+            destinationAddress: destinationAddress,
+            txHash: tx.hash,
+            status: 'completed'
+          })
+        });
+      } catch (e) {
+        console.error('Failed to record withdrawal:', e);
+      }
+
     } catch (err: any) {
       console.error('Withdrawal error:', err);
       setStatus('error');
@@ -272,7 +288,7 @@ export function WithdrawModal({ isOpen, onClose, walletAddress }: WithdrawModalP
                     <button
                       onClick={handleMaxAmount}
                       disabled={status === 'loading'}
-                      className="text-xs px-2 py-1 rounded bg-[#FF7A1A]/30 text-[#FF7A1A] hover:bg-[#FF7A1A]/40 transition disabled:opacity-50 border border-[#FF7A1A]/50 font-medium"
+                      className="text-xs px-2 py-1 rounded bg-[#FF6B00]/40 text-[#FF8C38] hover:bg-[#FF6B00]/50 transition disabled:bg-[#FF6B00]/20 border border-[#FF6B00]/60 font-semibold shadow-[0_0_8px_rgba(255,107,0,0.3)]"
                     >
                       MAX
                     </button>
