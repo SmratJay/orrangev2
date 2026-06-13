@@ -272,7 +272,7 @@ export function WithdrawModal({ isOpen, onClose, walletAddress }: WithdrawModalP
                     <button
                       onClick={handleMaxAmount}
                       disabled={status === 'loading'}
-                      className="text-xs px-2 py-1 rounded bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition disabled:opacity-50 border border-orange-500/30"
+                      className="text-xs px-2 py-1 rounded bg-[#FF7A1A]/30 text-[#FF7A1A] hover:bg-[#FF7A1A]/40 transition disabled:opacity-50 border border-[#FF7A1A]/50 font-medium"
                     >
                       MAX
                     </button>

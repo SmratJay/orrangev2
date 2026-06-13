@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { usePrivy, useWallets, useCreateWallet, getAccessToken } from "@privy-io/react-auth"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { History, ArrowLeft, Copy, Wallet as WalletIcon, RefreshCw, ArrowDownLeft, ArrowUpRight, ExternalLink, TrendingUp, Clock, CheckCircle2 } from "lucide-react"
+import { History, ArrowLeft, Copy, Wallet as WalletIcon, RefreshCw, ArrowDownLeft, ArrowUpRight, ExternalLink, TrendingUp, Clock, CheckCircle2, Send, Download } from "lucide-react"
 import { AuthGuard } from "@/components/auth-guard"
 import { BuyForm } from "@/components/buy-form"
 import { SellForm } from "@/components/sell-form"
@@ -26,6 +26,8 @@ function DashboardContent() {
   const [loading, setLoading] = useState(false)
   const [orders, setOrders] = useState<any[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
+  const [walletActivities, setWalletActivities] = useState<any[]>([])
+  const [loadingWalletActivities, setLoadingWalletActivities] = useState(false)
   const [fullName, setFullName] = useState<string | null>(null)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showNameCapture, setShowNameCapture] = useState(false)
@@ -85,6 +87,23 @@ function DashboardContent() {
     }
   }
 
+  // Fetch wallet activity (orders + withdrawals + deposits)
+  const fetchWalletActivity = async () => {
+    setLoadingWalletActivities(true)
+    try {
+      const authToken = await getAccessToken()
+      const res = await fetch('/api/wallet/activity', {
+        headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : undefined
+      })
+      const data = await res.json()
+      setWalletActivities(data.activities || [])
+    } catch (error) {
+      console.error('[Dashboard] Error fetching wallet activity:', error)
+    } finally {
+      setLoadingWalletActivities(false)
+    }
+  }
+
   // Fetch orders when viewing history
   useEffect(() => {
     if (view === 'history') {
@@ -95,6 +114,7 @@ function DashboardContent() {
   // Fetch orders on mount for Recent Activity section
   useEffect(() => {
     fetchOrders()
+    fetchWalletActivity()
   }, [])
 
   useEffect(() => {
@@ -394,12 +414,12 @@ function DashboardContent() {
                   View all →
                 </button>
               </div>
-              <div className="p-6">
-                {loadingOrders ? (
+              <div className="p-6 max-h-[300px] overflow-y-auto">
+                {loadingWalletActivities ? (
                   <div className="text-center py-8">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
                   </div>
-                ) : orders.length === 0 ? (
+                ) : walletActivities.length === 0 ? (
                   <div className="text-center py-8">
                     <Clock className="w-8 h-8 mx-auto mb-3 text-muted-foreground/30" />
                     <p className="text-muted-foreground text-sm">No transactions yet</p>
@@ -407,31 +427,47 @@ function DashboardContent() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {orders.slice(0, 3).map((order: any) => (
+                    {walletActivities.slice(0, 5).map((activity: any) => (
                       <div
-                        key={order.id}
+                        key={activity.id}
                         className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-white/5 transition"
-                        onClick={() => router.push(`/order/${order.id}`)}
+                        onClick={() => activity.type === 'conversion' && activity.id ? router.push(`/order/${activity.id}`) : null}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            order.type === 'onramp' ? 'bg-green-500/10' : 'bg-primary/10'
+                            activity.type === 'conversion' 
+                              ? activity.title?.includes('On-Ramp') || activity.description?.includes('to INR')
+                                ? 'bg-green-500/10' 
+                                : 'bg-orange-500/10'
+                              : activity.type === 'withdrawal'
+                                ? 'bg-red-500/10'
+                                : 'bg-blue-500/10'
                           }`}>
-                            {order.type === 'onramp'
-                              ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
-                              : <ArrowUpRight className="w-4 h-4 text-primary" />}
+                            {activity.type === 'conversion' ? (
+                              activity.title?.includes('On-Ramp') || activity.description?.includes('to INR')
+                                ? <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                                : <ArrowUpRight className="w-4 h-4 text-orange-400" />
+                            ) : activity.type === 'withdrawal' ? (
+                              <Send className="w-4 h-4 text-red-400" />
+                            ) : (
+                              <Download className="w-4 h-4 text-blue-400" />
+                            )}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-white">{order.type === 'onramp' ? 'On-Ramp' : 'Off-Ramp'}</p>
-                            <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{activity.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-white">{order.usdc_amount} USDC</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-white">{activity.amount} USDC</p>
                           <span className={`text-xs ${
-                            order.status === 'completed' ? 'text-green-400' :
-                            order.status === 'pending' ? 'text-yellow-400' : 'text-muted-foreground'
-                          }`}>{order.status}</span>
+                            activity.status === 'completed' ? 'text-green-400' :
+                            activity.status === 'pending' ? 'text-yellow-400' :
+                            activity.status === 'failed' ? 'text-red-400' :
+                            'text-muted-foreground'
+                          }`}>
+                            {activity.status}
+                          </span>
                         </div>
                       </div>
                     ))}
