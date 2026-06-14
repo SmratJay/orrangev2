@@ -424,29 +424,53 @@ export default function UserOrderPage() {
 
             {/* Exchange amount display */}
             <div className="grid grid-cols-2 gap-4">
+              {/* You Pay */}
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 className="rounded-2xl border border-white/10 bg-black/40 p-5"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <IndianRupee className="w-4 h-4 text-white/40" />
+                  {order.type === 'offramp' ? (
+                    <Wallet className="w-4 h-4 text-white/40" />
+                  ) : (
+                    <IndianRupee className="w-4 h-4 text-white/40" />
+                  )}
                   <span className="text-xs text-white/40 uppercase tracking-wider">You Pay</span>
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  ₹{order.fiat_amount.toLocaleString()}
+                  {order.type === 'offramp' ? (
+                    <>{order.usdc_amount} <span className="text-lg text-white/60">USDC</span></>
+                  ) : (
+                    <>₹{order.fiat_amount.toLocaleString()}</>
+                  )}
                 </p>
               </motion.div>
 
+              {/* You Receive */}
               <motion.div
                 whileHover={{ scale: 1.02 }}
-                className="rounded-2xl border border-[#FF6B00]/30 bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C38]/5 p-5"
+                className={`rounded-2xl border p-5 ${
+                  order.type === 'offramp' 
+                    ? 'border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5' 
+                    : 'border-[#FF6B00]/30 bg-gradient-to-br from-[#FF6B00]/10 to-[#FF8C38]/5'
+                }`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <Wallet className="w-4 h-4 text-[#FF8C38]" />
-                  <span className="text-xs text-[#FF8C38] uppercase tracking-wider">You Receive</span>
+                  {order.type === 'offramp' ? (
+                    <IndianRupee className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Wallet className="w-4 h-4 text-[#FF8C38]" />
+                  )}
+                  <span className={`text-xs uppercase tracking-wider ${
+                    order.type === 'offramp' ? 'text-green-400' : 'text-[#FF8C38]'
+                  }`}>You Receive</span>
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  {order.usdc_amount} <span className="text-lg text-[#FF8C38]">USDC</span>
+                  {order.type === 'offramp' ? (
+                    <>₹{order.fiat_amount.toLocaleString()}</>
+                  ) : (
+                    <>{order.usdc_amount} <span className={`text-lg ${order.type === 'offramp' ? 'text-green-400' : 'text-[#FF8C38]'}`}>USDC</span></>
+                  )}
                 </p>
               </motion.div>
             </div>
@@ -787,12 +811,21 @@ export default function UserOrderPage() {
                 </div>
               </div>
 
-              {/* UPI ID display */}
+              {/* UPI ID Input - Required before sending USDC */}
               <div className="p-4 rounded-xl border border-white/10 bg-black/40">
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Your UPI ID for receiving INR</p>
-                <div className="font-mono text-lg text-white">
-                  {order.user_upi_id || 'Not set'}
-                </div>
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">
+                  Your UPI ID for receiving INR <span className="text-red-400">*</span>
+                </p>
+                <Input
+                  type="text"
+                  placeholder="Enter your UPI ID (e.g., name@upi)"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="bg-black/40 border-white/10 text-white placeholder:text-white/30 rounded-xl h-12 font-mono"
+                />
+                <p className="text-xs text-white/40 mt-2">
+                  Required: Enter the UPI ID where you want to receive ₹{order.fiat_amount}
+                </p>
               </div>
 
               {/* Merchant wallet info if available */}
@@ -820,8 +853,12 @@ export default function UserOrderPage() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                disabled={actionLoading}
+                disabled={actionLoading || !paymentReference.trim()}
                 onClick={async () => {
+                  if (!paymentReference.trim()) {
+                    alert('Please enter your UPI ID first');
+                    return;
+                  }
                   const merchantWalletAddress = merchant?.wallet_address;
                   if (!merchantWalletAddress) {
                     alert('Merchant wallet address not available. Please try again.');
@@ -834,6 +871,21 @@ export default function UserOrderPage() {
                   }
                   setActionLoading(true);
                   try {
+                    // First update the order with user's UPI ID
+                    const authToken = await getAccessToken();
+                    const upiRes = await fetch(`/api/orders/${orderId}/update-upi`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authToken ? `Bearer ${authToken}` : '',
+                      },
+                      body: JSON.stringify({ userUpiId: paymentReference.trim() }),
+                    });
+                    if (!upiRes.ok) {
+                      const err = await upiRes.json();
+                      throw new Error(err.error || 'Failed to update UPI ID');
+                    }
+                    
                     console.log('[Offramp] Switching to Sepolia...');
                     await embeddedWallet.switchChain(11155111);
                     const provider = await embeddedWallet.getEthereumProvider();
@@ -854,7 +906,6 @@ export default function UserOrderPage() {
                       }],
                     });
                     console.log('[Offramp] txHash:', txHash);
-                    const authToken = await getAccessToken();
                     const res = await fetch(`/api/orders/${orderId}/submit-usdc`, {
                       method: 'POST',
                       headers: {

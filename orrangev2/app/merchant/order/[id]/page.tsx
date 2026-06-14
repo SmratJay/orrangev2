@@ -410,8 +410,8 @@ export default function MerchantOrderPage() {
           </Card>
         )}
 
-        {/* Status: Merchant Accepted - Waiting for payment */}
-        {order.status === 'accepted' && (
+        {/* Status: Merchant Accepted - Waiting for payment (ON-RAMP ONLY) */}
+        {order.type === 'onramp' && order.status === 'accepted' && (
           <>
             <Card className="border-blue-500">
               <CardHeader>
@@ -600,13 +600,42 @@ export default function MerchantOrderPage() {
             <CardContent className="space-y-4">
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  Share your wallet address with the customer if needed. 
+                  Customer will send USDC from their wallet first. 
                   You'll verify the USDC transfer on-chain before sending INR.
                 </p>
               </div>
+              
+              {/* Show merchant wallet address for customer to send USDC */}
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Your Wallet Address (for receiving USDC)</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 p-3 bg-background rounded-lg font-mono font-medium text-sm break-all">
+                    {wallets?.[0]?.address || 'Connect your wallet'}
+                  </div>
+                  {wallets?.[0]?.address && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(wallets[0].address);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Customer UPI (for INR payout)</p>
-                <p className="font-mono font-medium">{order.user_upi_id || 'Not provided yet'}</p>
+                <p className="font-mono font-medium">{order.user_upi_id || 'Waiting for customer to provide...'}</p>
+                {!order.user_upi_id && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Customer must provide their UPI ID before sending USDC
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
