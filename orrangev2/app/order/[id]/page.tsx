@@ -469,7 +469,7 @@ export default function UserOrderPage() {
                   {order.type === 'offramp' ? (
                     <>₹{order.fiat_amount.toLocaleString()}</>
                   ) : (
-                    <>{order.usdc_amount} <span className={`text-lg ${order.type === 'offramp' ? 'text-green-400' : 'text-[#FF8C38]'}`}>USDC</span></>
+                    <>{order.usdc_amount} <span className="text-lg text-[#FF8C38]">USDC</span></>
                   )}
                 </p>
               </motion.div>
