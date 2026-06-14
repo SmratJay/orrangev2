@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEmbeddedWallet, getUSDCBalance } from '@/lib/smart-wallet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { RefreshCw, Wallet, ArrowRightLeft } from 'lucide-react';
+import { RefreshCw, Wallet, ArrowRightLeft, Shield, Zap, Users, CheckCircle2, ArrowUpRight, IndianRupee, Coins, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function SellForm() {
@@ -151,146 +150,398 @@ export function SellForm() {
     }
   };
 
+  // Quick amount buttons
+  const quickAmounts = [10, 25, 50, 100];
+
+  const setQuickAmount = (amount: number) => {
+    const maxAmount = parseFloat(usdcBalance);
+    if (amount <= maxAmount) {
+      setAmountUsdc(amount.toString());
+    } else {
+      setAmountUsdc(maxAmount.toString());
+    }
+  };
+
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ArrowRightLeft className="w-5 h-5" />
-          Sell USDC (Sepolia)
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Wallet Status */}
-        {!walletsReady ? (
-          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Loading wallet...</span>
-          </div>
-        ) : !walletAddress ? (
-          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
-            <p className="text-sm text-orange-800">No wallet found</p>
-          </div>
-        ) : (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
-            <div className="flex justify-between items-center">
-              <span>
-                ✅ Wallet: {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
-              </span>
-              <button
-                onClick={refreshBalance}
-                className="text-green-700 hover:text-green-900"
-                disabled={balanceLoading}
-              >
-                <RefreshCw className={`w-4 h-4 ${balanceLoading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-            <div className="mt-2 font-semibold">
-              Balance: {balanceLoading ? 'Loading...' : `${usdcBalance} USDC`}
-            </div>
-          </div>
-        )}
+    <div className="w-full max-w-md mx-auto relative">
+      {/* Animated Background Elements */}
+      <div className="absolute -top-20 -left-20 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+      
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-black/90 via-black/80 to-emerald-500/5 backdrop-blur-xl overflow-hidden relative"
+      >
+        {/* Ambient gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-green-500/5 pointer-events-none" />
+        
+        {/* Animated border glow */}
+        <motion.div
+          className="absolute inset-0 rounded-3xl opacity-50"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent)',
+          }}
+          animate={{
+            backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+        />
 
-        {/* USDC Amount */}
-        <div className="space-y-2">
-          <Label>Amount to Sell (USDC)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            placeholder="10.00"
-            value={amountUsdc}
-            onChange={(e) => setAmountUsdc(e.target.value)}
-          />
-          {amountUsdc && balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
-            <p className="text-xs text-red-500">Amount exceeds your balance ({usdcBalance} USDC available)</p>
-          )}
-          {balanceError && (
-            <p className="text-xs text-amber-600">⚠️ {balanceError} — please refresh</p>
-          )}
-        </div>
-
-        {/* UPI ID */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Your UPI ID (for receiving INR)</Label>
-            {defaultUpiId && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (usingDefault) {
-                    setUsingDefault(false);
-                    setUserUpiId('');
-                  } else {
-                    setUsingDefault(true);
-                    setUserUpiId(defaultUpiId);
-                  }
-                }}
-                className="text-xs text-primary hover:text-primary/80 transition"
+        <div className="p-8 relative z-10">
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-center mb-8"
+          >
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <motion.div
+                whileHover={{ scale: 1.05, rotate: 5 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/30 to-green-500/20 flex items-center justify-center border border-emerald-500/30 shadow-lg shadow-emerald-500/10"
               >
-                {usingDefault ? 'Use different UPI' : `Use default (${defaultUpiId})`}
-              </button>
+                <ArrowUpRight className="w-7 h-7 text-emerald-400" />
+              </motion.div>
+            </div>
+            
+            <motion.h2 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-2xl font-bold text-white mb-2"
+            >
+              Sell Crypto
+            </motion.h2>
+            
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-white/50 text-sm"
+            >
+              Sell crypto directly to trusted peers.
+            </motion.p>
+
+            {/* Trust Indicators */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="flex items-center justify-center gap-4 mt-4"
+            >
+              <div className="flex items-center gap-1.5 text-xs text-white/40">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Secure</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-white/40">
+                <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                <span>Instant</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-white/40">
+                <Users className="w-3.5 h-3.5 text-blue-400" />
+                <span>P2P</span>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Wallet Status */}
+          <AnimatePresence mode="wait">
+            {!walletsReady ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mb-6 p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 flex items-center gap-3"
+              >
+                <RefreshCw className="w-5 h-5 text-yellow-400 animate-spin" />
+                <span className="text-sm text-white/70">Loading wallet...</span>
+              </motion.div>
+            ) : !walletAddress ? (
+              <motion.div
+                key="no-wallet"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mb-6 p-4 rounded-xl border border-red-500/30 bg-red-500/10 flex items-center gap-3"
+              >
+                <Wallet className="w-5 h-5 text-red-400" />
+                <span className="text-sm text-white/70">No wallet found</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="wallet-ready"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mb-6 p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-green-500/5 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                    <Wallet className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">Wallet Connected</p>
+                    <p className="text-xs font-mono text-emerald-400">
+                      {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-white/40">Balance</p>
+                  <p className="text-sm font-semibold text-white">
+                    {balanceLoading ? '...' : `${usdcBalance} USDC`}
+                  </p>
+                </div>
+              </motion.div>
             )}
-          </div>
-          <Input
-            type="text"
-            placeholder="yourname@upi"
-            value={userUpiId}
-            onChange={(e) => { setUserUpiId(e.target.value); setUsingDefault(false); }}
-          />
-          {usingDefault && defaultUpiId && (
-            <p className="text-xs text-green-600">✓ Using your default UPI ID</p>
-          )}
-          {!usingDefault && (
-            <p className="text-xs text-muted-foreground">Enter the UPI ID where you want to receive INR</p>
-          )}
-        </div>
+          </AnimatePresence>
 
-        {/* Summary */}
-        <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Exchange Rate</span>
-            <span>₹{EXCHANGE_RATE} / USDC</span>
-          </div>
-          <div className="flex justify-between font-bold text-lg">
-            <span>You Receive</span>
-            <span>₹{inrAmount}</span>
-          </div>
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>You Send</span>
-            <span>{amountUsdc || '0.00'} USDC</span>
-          </div>
-        </div>
+          {/* USDC Input */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mb-6"
+          >
+            <label className="block text-sm font-medium text-white/70 mb-2">
+              Amount to Sell
+            </label>
+            <div className="relative">
+              <motion.div
+                whileFocus={{ scale: 1.01 }}
+                className="relative"
+              >
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amountUsdc}
+                  onChange={(e) => setAmountUsdc(e.target.value)}
+                  className="h-16 text-2xl font-bold bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl pr-24 focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span className="text-sm font-medium text-emerald-400">USDC</span>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setAmountUsdc(usdcBalance)}
+                    className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded-md border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                  >
+                    MAX
+                  </motion.button>
+                </div>
+              </motion.div>
+              
+              {/* Animated border on focus */}
+              <motion.div
+                className="absolute inset-0 rounded-xl pointer-events-none"
+                animate={{
+                  boxShadow: amountUsdc 
+                    ? '0 0 20px rgba(16, 185, 129, 0.15)' 
+                    : '0 0 0px rgba(16, 185, 129, 0)'
+                }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+            
+            {amountUsdc && balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-red-400 mt-2 flex items-center gap-1"
+              >
+                <AlertCircle className="w-3 h-3" />
+                Amount exceeds your balance ({usdcBalance} USDC available)
+              </motion.p>
+            )}
+            {balanceError && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xs text-yellow-400 mt-2"
+              >
+                ⚠️ {balanceError}
+              </motion.p>
+            )}
 
-        {/* Warning */}
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <p className="font-medium">⚠️ Important:</p>
-          <p className="mt-1">
-            You will send USDC first. Only proceed with trusted merchants.
-            Make sure your UPI ID is correct.
-          </p>
-        </div>
+            {/* Quick Amount Buttons */}
+            <div className="flex gap-2 mt-3">
+              {quickAmounts.map((amount) => (
+                <motion.button
+                  key={amount}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setQuickAmount(amount)}
+                  className="flex-1 py-2 text-xs font-medium bg-white/5 border border-white/10 rounded-lg text-white/60 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 transition-all"
+                >
+                  {amount} USDC
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
 
-        <Button
-          className="w-full"
-          onClick={handleSell}
-          disabled={
-            loading ||
-            !amountUsdc ||
-            !walletAddress ||
-            !userUpiId ||
-            parseFloat(amountUsdc) <= 0 ||
-            (balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance))
-          }
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Creating Order...
-            </>
-          ) : (
-            'Create Sell Order'
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+          {/* UPI ID Input */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.6 }}
+            className="mb-6"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-white/70">
+                Your UPI ID
+              </label>
+              {defaultUpiId && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (usingDefault) {
+                      setUsingDefault(false);
+                      setUserUpiId('');
+                    } else {
+                      setUsingDefault(true);
+                      setUserUpiId(defaultUpiId);
+                    }
+                  }}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  {usingDefault ? 'Use different' : 'Use default'}
+                </motion.button>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="yourname@upi"
+                value={userUpiId}
+                onChange={(e) => { setUserUpiId(e.target.value); setUsingDefault(false); }}
+                className="h-14 bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all font-mono"
+              />
+              {usingDefault && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                </motion.div>
+              )}
+            </div>
+            <p className="text-xs text-white/40 mt-2">
+              Enter the UPI ID where you want to receive INR
+            </p>
+          </motion.div>
+
+          {/* INR Output */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="mb-6 p-4 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-green-500/5"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-white/60 flex items-center gap-2">
+                <IndianRupee className="w-4 h-4 text-emerald-400" />
+                You Receive
+              </span>
+              <span className="text-xs text-white/40">Rate: ₹{EXCHANGE_RATE}/USDC</span>
+            </div>
+            <motion.div
+              key={inrAmount}
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-3xl font-bold text-white"
+            >
+              ₹{inrAmount}
+            </motion.div>
+          </motion.div>
+
+          {/* Info Notice */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mb-6 p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center shrink-0">
+                <ArrowUpRight className="w-4 h-4 text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white/80 mb-1">How it works</p>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  You send USDC first from your wallet. Once the merchant receives it, 
+                  they will send INR to your UPI ID. The process is escrow-protected.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Submit Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSell}
+              disabled={
+                loading ||
+                !amountUsdc ||
+                !walletAddress ||
+                !userUpiId ||
+                parseFloat(amountUsdc) <= 0 ||
+                (balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance))
+              }
+              className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 overflow-hidden relative group"
+            >
+              {/* Button shine effect */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                animate={{ x: ['-100%', '100%'] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              />
+              
+              <span className="relative z-10 flex items-center gap-2">
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Creating Order...
+                  </>
+                ) : (
+                  <>
+                    <Coins className="w-5 h-5" />
+                    Create Sell Order
+                  </>
+                )}
+              </span>
+            </motion.button>
+          </motion.div>
+
+          {/* Security Note */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+            className="mt-4 text-center"
+          >
+            <p className="text-xs text-white/30 flex items-center justify-center gap-1">
+              <Shield className="w-3 h-3" />
+              Escrow protected • Instant settlement
+            </p>
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
