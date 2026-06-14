@@ -759,30 +759,67 @@ export default function UserOrderPage() {
 
         {/* OFF-RAMP: Status Accepted - Send USDC client-side */}
         {order.type === 'offramp' && order.status === 'accepted' && (
-          <Card className="border-primary">
-            <CardHeader>
-              <CardTitle className="text-primary">Send USDC</CardTitle>
-              <CardDescription>
-                Send {order.usdc_amount} USDC to the merchant
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800">
-                  <strong>Important:</strong> You need to send USDC from your wallet first.
-                  The merchant will send ₹{order.fiat_amount} after receiving your USDC.
-                </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                <Wallet className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Send USDC</h3>
+                <p className="text-sm text-white/60">Send {order.usdc_amount} USDC to the merchant</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Info box */}
+              <div className="p-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-white/80">
+                    <strong className="text-white">Important:</strong> Send USDC from your wallet first. 
+                    The merchant will send ₹{order.fiat_amount} to your UPI after receiving USDC.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <Label>Your UPI ID for receiving INR</Label>
-                <div className="p-3 bg-muted rounded-lg font-mono mt-1">
+              {/* UPI ID display */}
+              <div className="p-4 rounded-xl border border-white/10 bg-black/40">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Your UPI ID for receiving INR</p>
+                <div className="font-mono text-lg text-white">
                   {order.user_upi_id || 'Not set'}
                 </div>
               </div>
 
-              <Button
-                className="w-full"
+              {/* Merchant wallet info if available */}
+              {merchant?.wallet_address && (
+                <div className="p-4 rounded-xl border border-white/10 bg-black/40">
+                  <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Merchant Wallet</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 font-mono text-sm text-white/60 break-all">
+                      {merchant.wallet_address.slice(0, 12)}...{merchant.wallet_address.slice(-8)}
+                    </code>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        navigator.clipboard.writeText(merchant.wallet_address || '');
+                      }}
+                      className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                    >
+                      <Copy className="w-4 h-4 text-white/60" />
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 disabled={actionLoading}
                 onClick={async () => {
                   const merchantWalletAddress = merchant?.wallet_address;
@@ -838,106 +875,160 @@ export default function UserOrderPage() {
                     setActionLoading(false);
                   }
                 }}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold text-sm shadow-lg shadow-green-500/25 hover:shadow-green-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 overflow-hidden relative"
               >
-                {actionLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending USDC...
-                  </>
-                ) : (
-                  `Send ${order.usdc_amount} USDC to Merchant`
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+                {/* Button shine effect */}
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                />
+                <span className="relative z-10 flex items-center gap-2">
+                  {actionLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Sending USDC...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpRight className="w-5 h-5" />
+                      Send {order.usdc_amount} USDC
+                    </>
+                  )}
+                </span>
+              </motion.button>
+            </div>
+          </motion.div>
         )}
 
         {/* OFF-RAMP: Status USDC Sent - Waiting for merchant verification */}
         {order.type === 'offramp' && order.status === 'usdc_sent' && (
-          <Card className="border-yellow-500">
-            <CardHeader>
-              <CardTitle className="text-yellow-500 flex items-center gap-2">
-                <Clock className="w-5 h-5 animate-spin" />
-                Verifying USDC Transfer
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Your USDC transfer is being verified on-chain. 
-                Transaction hash: <code className="text-xs bg-muted px-1 rounded">{order.usdc_tx_hash?.slice(0, 20)}...</code>
-              </p>
-              {order.usdc_tx_hash && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.usdc_tx_hash}`, '_blank')}
-                  className="w-full"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View on Explorer
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-yellow-500/30 bg-yellow-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center">
+                <Loader2 className="w-7 h-7 text-yellow-400 animate-spin" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-400">Verifying USDC Transfer</h3>
+                <p className="text-sm text-white/60 mt-1">Your transfer is being confirmed on-chain...</p>
+                <p className="text-sm text-white/40 mt-2">This usually takes a few moments</p>
+              </div>
+            </div>
+            {order.usdc_tx_hash && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Transaction Hash</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-3 bg-black/40 rounded-lg text-sm text-white/80 font-mono break-all">
+                    {order.usdc_tx_hash}
+                  </code>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => window.open(`https://sepolia.etherscan.io/tx/${order.usdc_tx_hash}`, '_blank')}
+                    className="p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                  >
+                    <ExternalLink className="w-5 h-5 text-white/60" />
+                  </motion.button>
+                </div>
+              </div>
+            )}
+            {/* Animated progress dots */}
+            <div className="flex justify-center gap-1 mt-4">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-yellow-400"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                />
+              ))}
+            </div>
+          </motion.div>
         )}
 
         {/* OFF-RAMP: Status USDC Received - Waiting for INR */}
         {order.type === 'offramp' && order.status === 'usdc_received' && (
-          <Card className="border-blue-500">
-            <CardHeader>
-              <CardTitle className="text-blue-500 flex items-center gap-2">
-                <Clock className="w-5 h-5 animate-pulse" />
-                Waiting for INR
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                USDC verified! The merchant is sending ₹{order.fiat_amount} to your UPI ID: <strong>{order.user_upi_id}</strong>
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-blue-500/30 bg-blue-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                <Clock className="w-7 h-7 text-blue-400 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-400">Sending INR</h3>
+                <p className="text-sm text-white/60 mt-1">USDC transfer verified!</p>
+                <p className="text-sm text-white/40 mt-2">
+                  Merchant is sending ₹{order.fiat_amount} to <code className="bg-white/10 px-2 py-0.5 rounded text-blue-400">{order.user_upi_id}</code>
+                </p>
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* OFF-RAMP: Status Fiat Sent - Confirm INR Received */}
         {order.type === 'offramp' && order.status === 'fiat_sent' && (
-          <Card className="border-green-500">
-            <CardHeader>
-              <CardTitle className="text-green-500">Confirm INR Receipt</CardTitle>
-              <CardDescription>
-                Did you receive ₹{order.fiat_amount} in your bank account?
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5 backdrop-blur-xl p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Confirm Receipt</h3>
+                <p className="text-sm text-white/60">Did you receive ₹{order.fiat_amount}?</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
               {order.payment_reference && (
-                <p className="text-sm text-muted-foreground">
-                  UPI Reference: <code className="bg-muted px-1 rounded">{order.payment_reference}</code>
-                </p>
+                <div className="p-4 rounded-xl border border-white/10 bg-black/40">
+                  <p className="text-xs text-white/40 uppercase tracking-wider mb-2">UPI Reference</p>
+                  <code className="font-mono text-lg text-white">{order.payment_reference}</code>
+                </div>
               )}
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1 bg-green-500 hover:bg-green-600"
+
+              <div className="grid grid-cols-2 gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleConfirmFiat(true)}
                   disabled={actionLoading}
+                  className="py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold text-sm shadow-lg shadow-green-500/25 hover:shadow-green-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                 >
                   {actionLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    <CheckCircle2 className="w-5 h-5" />
                   )}
                   Yes, Received
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="flex-1"
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleConfirmFiat(false)}
                   disabled={actionLoading}
+                  className="py-4 rounded-xl bg-white/10 text-white font-semibold text-sm hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <AlertCircle className="w-4 h-4 mr-2" />
+                  <AlertCircle className="w-5 h-5" />
                   No, Dispute
-                </Button>
+                </motion.button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </motion.div>
         )}
 
         {/* ON-RAMP: Status Pending - Waiting for merchant to accept */}
