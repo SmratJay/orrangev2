@@ -390,7 +390,6 @@ export function SellForm() {
                 loading ||
                 !amountUsdc ||
                 !walletAddress ||
-                !userUpiId ||
                 parseFloat(amountUsdc) <= 0 ||
                 (balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance))
               }
