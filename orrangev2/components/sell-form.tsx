@@ -6,7 +6,7 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEmbeddedWallet, getUSDCBalance } from '@/lib/smart-wallet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, Wallet, ArrowRightLeft, Shield, Zap, Users, CheckCircle2, ArrowUpRight, IndianRupee, Coins, AlertCircle } from 'lucide-react';
+import { RefreshCw, Wallet, ArrowRightLeft, Shield, Zap, Users, ArrowUpRight, IndianRupee, Coins, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function SellForm() {
@@ -16,9 +16,6 @@ export function SellForm() {
   const embeddedWallet = useEmbeddedWallet();
   
   const [amountUsdc, setAmountUsdc] = useState('');
-  const [userUpiId, setUserUpiId] = useState('');
-  const [defaultUpiId, setDefaultUpiId] = useState<string | null>(null);
-  const [usingDefault, setUsingDefault] = useState(false);
   const [loading, setLoading] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [usdcBalance, setUsdcBalance] = useState<string>('0.00');
@@ -30,23 +27,6 @@ export function SellForm() {
   const EXCHANGE_RATE = 90;
   const inrAmount = amountUsdc ? (parseFloat(amountUsdc) * EXCHANGE_RATE).toFixed(2) : '0.00';
 
-  // Load default UPI from profile
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await fetch('/api/users/profile');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user?.default_upi_id) {
-            setDefaultUpiId(data.user.default_upi_id);
-            setUserUpiId(data.user.default_upi_id);
-            setUsingDefault(true);
-          }
-        }
-      } catch {}
-    };
-    loadProfile();
-  }, []);
 
   // Get wallet address and balance
   useEffect(() => {
@@ -103,11 +83,6 @@ export function SellForm() {
       return;
     }
 
-    if (!userUpiId || userUpiId.length < 5) {
-      alert('Please enter a valid UPI ID');
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -128,13 +103,6 @@ export function SellForm() {
       }
 
       const { order } = await response.json();
-
-      // Save user UPI ID separately
-      await fetch(`/api/orders/${order.id}/update-upi`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userUpiId }),
-      });
 
       router.push(`/order/${order.id}`);
     } catch (e) {
@@ -361,59 +329,6 @@ export function SellForm() {
                 </motion.button>
               ))}
             </div>
-          </motion.div>
-
-          {/* UPI ID Input */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mb-6"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-white/70">
-                Your UPI ID
-              </label>
-              {defaultUpiId && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    if (usingDefault) {
-                      setUsingDefault(false);
-                      setUserUpiId('');
-                    } else {
-                      setUsingDefault(true);
-                      setUserUpiId(defaultUpiId);
-                    }
-                  }}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  {usingDefault ? 'Use different' : 'Use default'}
-                </motion.button>
-              )}
-            </div>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="yourname@upi"
-                value={userUpiId}
-                onChange={(e) => { setUserUpiId(e.target.value); setUsingDefault(false); }}
-                className="h-14 bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all font-mono"
-              />
-              {usingDefault && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                </motion.div>
-              )}
-            </div>
-            <p className="text-xs text-white/40 mt-2">
-              Enter the UPI ID where you want to receive INR
-            </p>
           </motion.div>
 
           {/* INR Output */}
