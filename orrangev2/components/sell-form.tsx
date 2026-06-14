@@ -283,69 +283,81 @@ export function SellForm() {
             )}
           </AnimatePresence>
 
-          {/* USDC Input */}
+          {/* USDC Input - Matches Buy Form Structure */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 }}
             className="mb-6"
           >
-            <label className="block text-sm font-medium text-white/70 mb-2">
-              Amount to Sell
-            </label>
-            <div className="relative">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-white/70">
+                Amount to Sell
+              </label>
+              <span className="text-xs text-white/40">Balance: {usdcBalance} USDC</span>
+            </div>
+
+            {/* Input Field - Exact match to buy form styling */}
+            <div className="relative mb-4">
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={amountUsdc}
-                onChange={(e) => setAmountUsdc(e.target.value)}
-                className="h-16 text-2xl font-bold bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl pr-24 focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all appearance-none"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (/^\d*\.?\d*$/.test(val)) {
+                    setAmountUsdc(val);
+                  }
+                }}
+                className="h-16 text-2xl font-bold bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl pl-4 pr-20 focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <span className="text-sm font-medium text-emerald-400">USDC</span>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setAmountUsdc(usdcBalance)}
-                  className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded-md border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
-                >
-                  MAX
-                </motion.button>
+              {/* USDC Label - positioned like the toggle in buy form */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <span className="text-sm font-semibold text-emerald-400">USDC</span>
               </div>
             </div>
-            
+
+            {/* Error Messages */}
             {amountUsdc && balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
               <motion.p
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-xs text-red-400 mt-2 flex items-center gap-1"
+                className="text-xs text-red-400 mb-3 flex items-center gap-1"
               >
                 <AlertCircle className="w-3 h-3" />
-                Amount exceeds your balance ({usdcBalance} USDC available)
+                Amount exceeds your balance
               </motion.p>
             )}
             {balanceError && (
               <motion.p
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-xs text-yellow-400 mt-2"
+                className="text-xs text-yellow-400 mb-3"
               >
                 ⚠️ {balanceError}
               </motion.p>
             )}
 
-            {/* Quick Amount Buttons */}
-            <div className="flex gap-2 mt-3">
+            {/* MAX Button - Styled like buy form's preset amounts */}
+            <div className="flex gap-2">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setAmountUsdc(usdcBalance)}
+                className="flex-1 py-2.5 text-xs font-semibold bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 hover:bg-emerald-500/30 transition-all"
+              >
+                MAX
+              </motion.button>
               {quickAmounts.map((amount) => (
                 <motion.button
                   key={amount}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setQuickAmount(amount)}
-                  className="flex-1 py-2 text-xs font-medium bg-white/5 border border-white/10 rounded-lg text-white/60 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 transition-all"
+                  className="flex-1 py-2.5 text-xs font-medium bg-white/5 border border-white/10 rounded-lg text-white/60 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400 transition-all"
                 >
-                  {amount} USDC
+                  {amount}
                 </motion.button>
               ))}
             </div>
