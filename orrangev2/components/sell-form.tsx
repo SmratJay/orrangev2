@@ -228,26 +228,6 @@ export function SellForm() {
               Sell crypto directly to trusted peers.
             </motion.p>
 
-            {/* Trust Indicators */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="flex items-center justify-center gap-4 mt-4"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-white/40">
-                <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Secure</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-white/40">
-                <Zap className="w-3.5 h-3.5 text-yellow-400" />
-                <span>Instant</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-white/40">
-                <Users className="w-3.5 h-3.5 text-blue-400" />
-                <span>P2P</span>
-              </div>
-            </motion.div>
           </motion.div>
 
           {/* Wallet Status */}
@@ -314,41 +294,25 @@ export function SellForm() {
               Amount to Sell
             </label>
             <div className="relative">
-              <motion.div
-                whileFocus={{ scale: 1.01 }}
-                className="relative"
-              >
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amountUsdc}
-                  onChange={(e) => setAmountUsdc(e.target.value)}
-                  className="h-16 text-2xl font-bold bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl pr-24 focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all"
-                />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <span className="text-sm font-medium text-emerald-400">USDC</span>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setAmountUsdc(usdcBalance)}
-                    className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded-md border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
-                  >
-                    MAX
-                  </motion.button>
-                </div>
-              </motion.div>
-              
-              {/* Animated border on focus */}
-              <motion.div
-                className="absolute inset-0 rounded-xl pointer-events-none"
-                animate={{
-                  boxShadow: amountUsdc 
-                    ? '0 0 20px rgba(16, 185, 129, 0.15)' 
-                    : '0 0 0px rgba(16, 185, 129, 0)'
-                }}
-                transition={{ duration: 0.3 }}
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={amountUsdc}
+                onChange={(e) => setAmountUsdc(e.target.value)}
+                className="h-16 text-2xl font-bold bg-black/40 border-white/10 text-white placeholder:text-white/20 rounded-xl pr-24 focus:border-emerald-500/50 focus:ring-emerald-500/20 transition-all appearance-none"
               />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <span className="text-sm font-medium text-emerald-400">USDC</span>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setAmountUsdc(usdcBalance)}
+                  className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 rounded-md border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
+                >
+                  MAX
+                </motion.button>
+              </div>
             </div>
             
             {amountUsdc && balanceLoaded && parseFloat(amountUsdc) > parseFloat(usdcBalance) && (
